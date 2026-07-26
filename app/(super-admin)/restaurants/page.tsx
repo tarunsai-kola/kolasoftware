@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import RestaurantList from '@/components/super-admin/RestaurantList'
 import type { Metadata } from 'next'
 
@@ -29,9 +30,9 @@ export default async function AdminRestaurantsPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Platform Tenants</h1>
           <p className="mt-1 text-sm text-gray-500">Manage all restaurants across the platform</p>
         </div>
-        <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 transition-colors">
+        <Link href="/restaurants/new" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 transition-colors">
           + Onboard Restaurant
-        </button>
+        </Link>
       </div>
 
       <RestaurantList initialRestaurants={restaurants || []} />
