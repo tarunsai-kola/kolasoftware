@@ -107,7 +107,7 @@ export default function SavingsPageClient({
           </div>
 
           <p className="text-sm text-gray-400">
-            Clicking the dispatch button above will send this summary directly to the owner's inbox.
+            Clicking the dispatch button above will send this summary directly to the owner&apos;s inbox.
           </p>
         </div>
       </div>

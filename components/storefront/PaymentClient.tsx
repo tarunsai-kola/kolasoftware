@@ -182,7 +182,7 @@ export default function PaymentClient({
         // Razorpay calls this handler only after it verifies the payment on
         // its servers. We can safely redirect the customer to the confirmation
         // page. The webhook will also fire and update payment_status in the DB.
-        handler: (_response: RazorpayResponse) => {
+        handler: () => {
           toast.success('Payment successful! Confirming your order…', {
             duration: 3000,
           })
@@ -302,7 +302,7 @@ export default function PaymentClient({
       {/* ── Failure message ─────────────────────────────────────────────────── */}
       {paymentState === 'failed' && (
         <p className="mt-3 text-center text-sm text-gray-400">
-          Your order is saved — no amount was charged. Tap "Retry payment" to try again.
+          Your order is saved — no amount was charged. Tap &quot;Retry payment&quot; to try again.
         </p>
       )}
 

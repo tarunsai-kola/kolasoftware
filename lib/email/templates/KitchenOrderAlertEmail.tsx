@@ -105,7 +105,7 @@ export const KitchenOrderAlertEmail = ({
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              This email is a backup notification. Please mark the order as "Preparing" 
+              This email is a backup notification. Please mark the order as &quot;Preparing&quot; 
               in your kitchen dashboard to stop the dashboard alarm.
             </Text>
           </Section>

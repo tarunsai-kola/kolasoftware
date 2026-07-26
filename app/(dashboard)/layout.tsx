@@ -49,7 +49,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           </div>
           <h1 className="text-xl font-bold text-red-900">Access Denied</h1>
           <p className="mt-2 text-sm text-red-700">
-            Your account isn't linked to <strong>{theme.name}</strong> yet. 
+            Your account isn&apos;t linked to <strong>{theme.name}</strong> yet. 
             Please contact support or the restaurant owner to get access.
           </p>
           <form action="/auth/signout" method="post" className="mt-6">

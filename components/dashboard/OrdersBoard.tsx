@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -51,10 +51,6 @@ const COLUMNS: { id: OrderStatus; label: string; next?: OrderStatus; color: stri
 // =============================================================================
 // Helpers
 // =============================================================================
-
-function formatPrice(price: number): string {
-  return `₹${Number.isInteger(price) ? price : price.toFixed(2)}`
-}
 
 function shortOrderId(uuid: string): string {
   return uuid.replace(/-/g, '').slice(0, 6).toUpperCase()
@@ -341,7 +337,6 @@ function OrderCard({
   onAcknowledge,
   onMove,
   theme,
-  now,
 }: {
   order: Order
   nextStatus?: OrderStatus

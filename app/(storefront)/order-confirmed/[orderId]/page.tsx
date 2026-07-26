@@ -156,7 +156,7 @@ export default async function OrderConfirmedPage({ params }: PageProps) {
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-gray-500">
-                  We're confirming your payment. This page will update automatically.
+                  We&apos;re confirming your payment. This page will update automatically.
                 </p>
               )}
             </>
@@ -231,7 +231,7 @@ export default async function OrderConfirmedPage({ params }: PageProps) {
                 <div className="flex items-start gap-2">
                   <span className="text-base">🏪</span>
                   <p className="text-sm text-gray-600">
-                    Please pick up your order from {theme.name} when it's ready. We'll notify you.
+                    Please pick up your order from {theme.name} when it&apos;s ready. We&apos;ll notify you.
                   </p>
                 </div>
               ) : (

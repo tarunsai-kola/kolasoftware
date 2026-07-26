@@ -141,21 +141,25 @@ export async function onboardRestaurant(data: OnboardData) {
       tempPassword 
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Onboarding Transaction Failed:', error)
     
     // Attempt rollback if we failed mid-way
     if (newUserId) {
       try {
         await supabaseAdmin.auth.admin.deleteUser(newUserId)
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     if (newRestaurantId) {
       try {
         await supabaseAdmin.from('restaurants').delete().eq('id', newRestaurantId)
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
 
-    return { error: error.message || 'An unknown error occurred during onboarding.' }
+    return { error: error instanceof Error ? error.message : 'An unknown error occurred during onboarding.' }
   }
 }

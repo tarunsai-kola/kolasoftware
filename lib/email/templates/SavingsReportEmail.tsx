@@ -43,7 +43,7 @@ export const SavingsReportEmail = ({
             <Text style={text}>Hi {ownerName},</Text>
             <Text style={text}>
               Here is your performance summary for <strong>{monthName}</strong>. 
-              By processing direct orders on your own platform, you've avoided the heavy 25% commissions charged by third-party aggregators!
+              By processing direct orders on your own platform, you&apos;ve avoided the heavy 25% commissions charged by third-party aggregators!
             </Text>
 
             <Hr style={hrLight} />

@@ -16,9 +16,9 @@ import { KitchenOrderAlertEmail } from "@/lib/email/templates/KitchenOrderAlertE
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE'
   table: string
-  record: any
+  record: unknown
   schema: string
-  old_record: any
+  old_record: unknown
 }
 
 // ── Resend API Wrapper ──────────────────────────────────────────────────────

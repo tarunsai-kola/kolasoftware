@@ -83,7 +83,7 @@ export async function sendSavingsReport(restaurantId: string, monthName: string)
     }
 
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to send savings report:', error)
     return { error: error.message || 'Failed to send report.' }
   }
