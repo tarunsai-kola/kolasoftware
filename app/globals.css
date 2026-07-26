@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   CSS Custom Property Foundations
+   ============================================================================= */
+
+/*
+ * Scaffold defaults — set on :root so the page is never visually broken
+ * before ThemeProvider mounts on the client (SSR → hydration gap).
+ *
+ * ThemeProvider writes the same properties via its inline `style` attribute
+ * (for SSR correctness) and via useEffect (for client-side updates).
+ * These :root values act as the last-resort fallback only.
+ */
+:root {
+  /* Next.js scaffold variables */
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Restaurant brand variables — fallback values */
+  --restaurant-primary:       #D85A30;
+  --restaurant-primary-h:     19;
+  --restaurant-primary-s:     67%;
+  --restaurant-primary-l:     50%;
+  --restaurant-primary-light: hsl(19 67% 65%);
+  --restaurant-primary-dark:  hsl(19 67% 35%);
+  --restaurant-primary-muted: hsl(19 67% 50% / 0.12);
+  --restaurant-font:          system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* =============================================================================
+   Base Styles
+   ============================================================================= */
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  /* font-family is overridden by ThemeProvider's useEffect after hydration */
+  font-family: var(--restaurant-font), system-ui, sans-serif;
+}
+
+/* =============================================================================
+   Tailwind Component Abstractions
+   Composable building blocks using the brand palette.
+   These are opt-in helpers — components can also use utility classes directly.
+   ============================================================================= */
+
+@layer components {
+  /*
+   * .btn-brand — primary CTA button using the restaurant's brand colour.
+   * Hover and focus states are derived from the --restaurant-primary-dark/light vars.
+   *
+   * Usage: <button className="btn-brand">Add to cart</button>
+   */
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-lg px-5 py-2.5 text-sm font-semibold
+           transition-all duration-150 ease-in-out
+           focus-visible:outline-none;
+
+    background-color: var(--restaurant-primary);
+    color: #fff;
+
+    &:hover {
+      background-color: var(--restaurant-primary-dark);
+    }
+    &:active {
+      background-color: var(--restaurant-primary-dark);
+      transform: scale(0.98);
+    }
+    &:focus-visible {
+      box-shadow: var(--tw-shadow, 0 0 0 3px var(--restaurant-primary-muted));
+      outline: 2px solid var(--restaurant-primary);
+      outline-offset: 2px;
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  /*
+   * .btn-brand-outline — secondary variant with brand border and text.
+   *
+   * Usage: <button className="btn-brand-outline">View menu</button>
+   */
+  .btn-brand-outline {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-lg px-5 py-2.5 text-sm font-semibold
+           transition-all duration-150 ease-in-out bg-transparent
+           focus-visible:outline-none;
+
+    border: 1.5px solid var(--restaurant-primary);
+    color: var(--restaurant-primary);
+
+    &:hover {
+      background-color: var(--restaurant-primary-muted);
+    }
+    &:active {
+      background-color: var(--restaurant-primary-muted);
+      transform: scale(0.98);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--restaurant-primary);
+      outline-offset: 2px;
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  /*
+   * .badge-brand — small brand-coloured badge/tag.
+   *
+   * Usage: <span className="badge-brand">Bestseller</span>
+   */
+  .badge-brand {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    background-color: var(--restaurant-primary-muted);
+    color: var(--restaurant-primary-dark);
+  }
+
+  /*
+   * .ring-brand — focus ring using brand colour.
+   * Apply to inputs, selects, textareas.
+   *
+   * Usage: <input className="ring-brand focus:ring-brand" />
+   */
+  .ring-brand {
+    @apply focus:outline-none;
+    &:focus {
+      box-shadow: 0 0 0 3px var(--restaurant-primary-muted);
+      border-color: var(--restaurant-primary);
+    }
+  }
+}
+
+/* =============================================================================
+   Utilities
+   ============================================================================= */
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide scrollbar while keeping scroll behaviour — used by category nav */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * .font-brand — apply the restaurant's chosen font family.
+   * Tailwind generates this from tailwind.config.ts fontFamily.brand,
+   * but this explicit utility ensures it's always available.
+   */
+  .font-brand {
+    font-family: var(--restaurant-font), system-ui, sans-serif;
+  }
+}
