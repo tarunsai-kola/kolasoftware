@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getErrorMessage } from '@/lib/utils/error'
 
 export async function updateRestaurantStatus(restaurantId: string, newStatus: 'active' | 'suspended') {
   const supabase = await createClient()
@@ -13,7 +14,7 @@ export async function updateRestaurantStatus(restaurantId: string, newStatus: 'a
     .eq('id', restaurantId)
 
   if (error) {
-    return { error: error.message }
+    return { error: getErrorMessage(error) }
   }
 
   revalidatePath('/restaurants')

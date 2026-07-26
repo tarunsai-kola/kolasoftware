@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { createClient } from '@/lib/supabase/server'
 import StorefrontClient from '@/components/storefront/StorefrontClient'
+import { getErrorMessage } from '@/lib/utils/error'
 
 // ─── Shared type used by this page and child components ───────────────────────
 export type MenuItem = {
@@ -48,7 +49,7 @@ export default async function StorefrontPage() {
 
   if (error) {
     // Log server-side; don't surface DB errors to the customer
-    console.error('[StorefrontPage] menu fetch error:', error.message)
+    console.error('[StorefrontPage] menu fetch error:', getErrorMessage(error))
   }
 
   return <StorefrontClient menuItems={menuItems ?? []} />

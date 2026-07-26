@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { getErrorMessage } from '@/lib/utils/error'
 
 // =============================================================================
 // Webhook handler: POST /api/payments/webhook
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
           .eq('razorpay_order_id', payment.order_id)
 
         if (error) {
-          console.error('[webhook] payment.captured DB update failed:', error.message)
+          console.error('[webhook] payment.captured DB update failed:', getErrorMessage(error))
         } else {
           console.log('[webhook] payment.captured — order updated to paid:', payment.order_id)
         }
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
           .eq('razorpay_order_id', payment.order_id)
 
         if (error) {
-          console.error('[webhook] payment.failed DB update failed:', error.message)
+          console.error('[webhook] payment.failed DB update failed:', getErrorMessage(error))
         } else {
           console.log('[webhook] payment.failed — order marked failed:', payment.order_id)
         }

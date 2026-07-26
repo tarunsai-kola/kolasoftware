@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/utils/error'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,7 +23,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      toast.error(error.message)
+      toast.error(getErrorMessage(error))
       setIsLoading(false)
       return
     }

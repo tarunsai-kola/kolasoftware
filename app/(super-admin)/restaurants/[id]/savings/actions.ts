@@ -6,6 +6,7 @@ import { render } from '@react-email/render'
 import { SavingsReportEmail } from '@/lib/email/templates/SavingsReportEmail'
 import { calculateSavings } from '@/lib/calculate-savings'
 import React from 'react'
+import { getErrorMessage } from '@/lib/utils/error'
 
 export async function sendSavingsReport(restaurantId: string, monthName: string) {
   const supabase = await createClient()
@@ -85,6 +86,6 @@ export async function sendSavingsReport(restaurantId: string, monthName: string)
     return { success: true }
   } catch (error: unknown) {
     console.error('Failed to send savings report:', error)
-    return { error: error.message || 'Failed to send report.' }
+    return { error: getErrorMessage(error, 'Failed to send report.') }
   }
 }

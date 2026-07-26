@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/utils/error'
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
@@ -22,7 +23,7 @@ export default function AdminLoginPage() {
     })
 
     if (error) {
-      toast.error(error.message)
+      toast.error(getErrorMessage(error))
       setLoading(false)
     } else {
       toast.success('Welcome back, Admin')

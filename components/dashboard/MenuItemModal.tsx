@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { v4 as uuidv4 } from 'uuid'
 import toast from 'react-hot-toast'
 import type { MenuItem } from './MenuManager'
+import { getErrorMessage } from '@/lib/utils/error'
 
 interface MenuItemModalProps {
   restaurantId: string
@@ -117,7 +118,7 @@ export default function MenuItemModal({
         .single()
 
       if (error) {
-        toast.error(error.message)
+        toast.error(getErrorMessage(error))
       } else {
         savedItem = data as MenuItem
         toast.success('Item updated')
@@ -131,7 +132,7 @@ export default function MenuItemModal({
         .single()
 
       if (error) {
-        toast.error(error.message)
+        toast.error(getErrorMessage(error))
       } else {
         savedItem = data as MenuItem
         toast.success('Item created')
