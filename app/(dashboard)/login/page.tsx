@@ -30,7 +30,7 @@ export default function LoginPage() {
 
     toast.success('Logged in successfully')
     router.refresh() // Triggers the layout to re-run and redirect or show dashboard
-    router.push('/dashboard')
+    router.push('/orders')
   }
 
   return (
