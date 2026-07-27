@@ -222,11 +222,11 @@ export default function CartDrawer({
             >
               {items.map((entry) => (
                 <CartItem
-                  key={entry.menuItemId}
+                  key={entry.cartEntryId}
                   entry={entry}
-                  onIncrement={() => onIncrement(entry.menuItemId)}
-                  onDecrement={() => onDecrement(entry.menuItemId)}
-                  onRemove={() => onRemove(entry.menuItemId)}
+                  onIncrement={() => onIncrement(entry.cartEntryId)}
+                  onDecrement={() => onDecrement(entry.cartEntryId)}
+                  onRemove={() => onRemove(entry.cartEntryId)}
                   formatPrice={formatPrice}
                 />
               ))}
@@ -261,7 +261,7 @@ export default function CartDrawer({
               className="btn-brand w-full py-4 text-base disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={`Proceed to checkout — total ${formatPrice(totalPrice)}`}
             >
-              <span>Proceed to checkout</span>
+              <span>Cash on delivery</span>
               <span className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-sm">
                 {formatPrice(totalPrice)}
               </span>
@@ -318,8 +318,20 @@ function CartItem({
         <span className="truncate text-sm font-semibold text-gray-900 leading-snug">
           {entry.name}
         </span>
+        
+        {/* Customizations */}
+        {(entry.selectedVariants?.length || entry.selectedAddons?.length) ? (
+          <div className="flex flex-col text-[11px] text-gray-500 leading-tight">
+            {entry.selectedVariants?.map(v => (
+              <span key={v.groupId}>{v.groupName}: {v.variantName}</span>
+            ))}
+            {entry.selectedAddons?.map(a => (
+              <span key={a.addonName}>+ {a.addonName}</span>
+            ))}
+          </div>
+        ) : null}
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 mt-1">
           {/* Compact stepper */}
           <div
             role="group"

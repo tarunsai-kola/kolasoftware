@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { ThemeProvider } from '@/components/shared/ThemeProvider'
 import { CartProvider } from '@/components/storefront/CartContext'
+import { CustomerProvider } from '@/components/storefront/CustomerContext'
 
 /**
  * Storefront layout — wraps all customer-facing pages:
@@ -24,8 +25,9 @@ export default async function StorefrontLayout({
 
   return (
     <ThemeProvider restaurantId={restaurantId} theme={theme}>
-      <CartProvider>
-        {children}
+      <CustomerProvider>
+        <CartProvider>
+          {children}
 
         {/*
           Toaster — uses CSS variables so font and color match the restaurant.
@@ -52,7 +54,8 @@ export default async function StorefrontLayout({
             },
           }}
         />
-      </CartProvider>
+        </CartProvider>
+      </CustomerProvider>
     </ThemeProvider>
   )
 }

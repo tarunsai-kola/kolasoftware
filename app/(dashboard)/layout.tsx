@@ -13,11 +13,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const headersList = await headers()
   const pathname = headersList.get('x-pathname') || ''
 
-  // If it's the login page, render without the dashboard shell/sidebar.
-  if (pathname === '/login') {
-    return <>{children}</>
-  }
-
   // Ensure this is accessed via a restaurant context
   const { restaurantId, theme } = await getRestaurantContext()
 
@@ -29,7 +24,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     redirect('/login')
   }
 
-  // Verify authorization: Is this user staff for THIS restaurant?
+  // Verify authorization: Is this user staff or rider for THIS restaurant?
   const { data: staffRecord, error: staffError } = await supabase
     .from('restaurant_staff')
     .select('role')
@@ -37,7 +32,24 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     .eq('restaurant_id', restaurantId)
     .single()
 
-  if (staffError || !staffRecord) {
+  let role = staffRecord?.role
+  let userLabel = user.email
+
+  if (!staffRecord) {
+    const { data: riderRecord } = await supabase
+      .from('delivery_riders')
+      .select('id, name')
+      .eq('user_id', user.id)
+      .eq('restaurant_id', restaurantId)
+      .single()
+
+    if (riderRecord) {
+      role = 'rider'
+      userLabel = riderRecord.name
+    }
+  }
+
+  if (!role) {
     // Authenticated, but not authorized for this tenant
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
@@ -62,17 +74,37 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     )
   }
 
-  // Navigation Items
-  const navItems = [
-    { label: 'Orders', href: '/orders' },
-    { label: 'Menu', href: '/menu' },
-    { label: 'History', href: '/history' },
-    { label: 'Settings', href: '/settings' },
-  ]
+  let navItems = []
+  if (role === 'rider') {
+    navItems = [
+      { label: 'My Deliveries', href: '/delivery' },
+    ]
+  } else if (role === 'driver') {
+    navItems = [
+      { label: 'Delivery Map', href: '/delivery' },
+    ]
+  } else if (role === 'owner') {
+    navItems = [
+      { label: 'Orders', href: '/orders' },
+      { label: 'Delivery Map', href: '/delivery' },
+      { label: 'Menu', href: '/menu' },
+      { label: 'Riders', href: '/riders' },
+      { label: 'History', href: '/history' },
+      { label: 'Settings', href: '/settings' },
+    ]
+  } else {
+    // regular staff
+    navItems = [
+      { label: 'Orders', href: '/orders' },
+      { label: 'Menu', href: '/menu' },
+      { label: 'History', href: '/history' },
+      { label: 'Settings', href: '/settings' },
+    ]
+  }
 
   // Render Dashboard Shell
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-gray-50">
+    <div className="flex h-screen flex-col md:flex-row bg-[#f5f5f7] overflow-hidden">
       
       {/* ── Mobile Header (Visible only on small screens) ────────────────── */}
       <header className="md:hidden flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4">
@@ -89,27 +121,27 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       </header>
 
       {/* ── Sidebar (Hidden on mobile by default in this MVP) ────────────── */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-gray-200 bg-white h-screen sticky top-0">
-        <div className="flex h-16 items-center gap-3 border-b border-gray-100 px-6">
+      <aside className="hidden md:flex w-52 flex-col border-r border-gray-200 bg-white h-screen sticky top-0 shrink-0">
+        <div className="flex h-14 items-center gap-2.5 border-b border-gray-100 px-4">
           {theme.logoUrl && (
-            <img src={theme.logoUrl} alt="Logo" className="h-8 w-8 rounded-full object-cover" />
+            <img src={theme.logoUrl} alt="Logo" className="h-7 w-7 rounded-full object-cover" />
           )}
-          <span className="font-bold text-gray-900 truncate">{theme.name}</span>
+          <span className="font-bold text-gray-900 text-sm truncate">{theme.name}</span>
         </div>
 
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/orders' && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-brand/10 text-brand'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'text-white'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                style={isActive ? { color: 'var(--restaurant-primary)', backgroundColor: 'var(--restaurant-primary-muted)' } : {}}
+                style={isActive ? { backgroundColor: theme.primaryColor || '#D85A30' } : {}}
               >
                 {item.label}
               </Link>
@@ -117,11 +149,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           })}
         </nav>
 
-        <div className="border-t border-gray-100 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-gray-900 truncate">{user.email}</span>
-              <span className="text-xs text-gray-500 capitalize">{staffRecord.role}</span>
+        <div className="border-t border-gray-100 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold text-gray-800 truncate">{userLabel}</span>
+              <span className="text-[11px] text-gray-400 capitalize">{role}</span>
             </div>
             <form action="/auth/signout" method="post">
               <button 
@@ -129,7 +161,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
                 className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
                 title="Sign out"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
               </button>
             </form>
           </div>
@@ -137,7 +169,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       </aside>
 
       {/* ── Main Content Area ──────────────────────────────────────────────── */}
-      <main className="flex-1 p-4 md:p-8">
+      <main className="flex flex-col flex-1 overflow-hidden">
         {children}
       </main>
     </div>

@@ -30,11 +30,13 @@ export default async function OrdersPage() {
       created_at,
       acknowledged_at,
       items,
+      delivery_address,
+      delivery_rider_id,
+      delivery_riders ( name, phone ),
       customer:customers ( name, phone )
     `
     )
     .eq('restaurant_id', restaurantId)
-    .eq('payment_status', 'paid')
     .in('status', ['new', 'preparing', 'ready', 'completed'])
     .order('created_at', { ascending: false })
 
@@ -42,30 +44,29 @@ export default async function OrdersPage() {
     console.error('Failed to fetch initial orders:', error)
   }
 
+  // Fetch riders for assignment dropdown
+  const { data: riders } = await supabase
+    .from('delivery_riders')
+    .select('id, name, phone, is_active')
+    .eq('restaurant_id', restaurantId)
+    .eq('is_active', true)
+
   // Flatten the customer relationship array if Supabase returned an array
   const formattedOrders = (orders || []).map((order) => {
     const customer = Array.isArray(order.customer) ? order.customer[0] : order.customer
+    const rider = Array.isArray(order.delivery_riders) ? order.delivery_riders[0] : order.delivery_riders
     return {
       ...order,
       customer_name: customer?.name ?? 'Unknown',
       customer_phone: customer?.phone ?? '',
+      rider_name: rider?.name ?? null,
+      rider_phone: rider?.phone ?? null,
     }
   })
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Live Orders</h1>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
-          </span>
-          <span className="text-sm font-medium text-gray-600">Live updates active</span>
-        </div>
-      </div>
-
-      <OrdersBoard initialOrders={formattedOrders} restaurantId={restaurantId} theme={theme} />
+    <div className="flex flex-col flex-1 overflow-hidden h-full">
+      <OrdersBoard initialOrders={formattedOrders} riders={riders || []} restaurantId={restaurantId} theme={theme} />
     </div>
   )
 }

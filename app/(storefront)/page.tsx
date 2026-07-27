@@ -13,6 +13,10 @@ export type MenuItem = {
   category: string
   image_url: string | null
   sort_order: number
+  food_type?: 'veg' | 'non-veg' | 'egg' | null
+  cuisine_tags?: string[]
+  variant_groups?: any[]
+  addon_groups?: any[]
 }
 
 // ─── Dynamic metadata per restaurant ──────────────────────────────────────────
@@ -41,7 +45,7 @@ export default async function StorefrontPage() {
 
   const { data: menuItems, error } = await supabase
     .from('menu_items')
-    .select('id, name, description, price, category, image_url, sort_order')
+    .select('id, name, description, price, category, image_url, sort_order, food_type, cuisine_tags, variant_groups, addon_groups')
     .eq('restaurant_id', restaurantId)
     .eq('is_available', true)
     .order('category', { ascending: true })

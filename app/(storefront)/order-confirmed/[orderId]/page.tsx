@@ -259,15 +259,35 @@ export default async function OrderConfirmedPage({ params }: PageProps) {
         )}
 
         {/* ── CTA ─────────────────────────────────────────────────────────── */}
-        <div className="mt-8 text-center">
-          <Link
-            href="/"
-            className="text-sm font-medium underline underline-offset-2"
-            style={{ color: 'var(--restaurant-primary)' }}
-          >
-            ← Back to menu
-          </Link>
-        </div>
+        {isPaid && (
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <Link
+              href={`/order-tracking/${orderId}`}
+              className="w-full rounded-2xl py-4 text-center text-sm font-bold text-white shadow-md transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--restaurant-primary)' }}
+            >
+              🛵 Track Your Order →
+            </Link>
+            <Link
+              href="/"
+              className="text-sm font-medium underline underline-offset-2"
+              style={{ color: 'var(--restaurant-primary)' }}
+            >
+              ← Back to menu
+            </Link>
+          </div>
+        )}
+        {!isPaid && (
+          <div className="mt-8 text-center">
+            <Link
+              href="/"
+              className="text-sm font-medium underline underline-offset-2"
+              style={{ color: 'var(--restaurant-primary)' }}
+            >
+              ← Back to menu
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   )

@@ -13,49 +13,52 @@ import {
 // Types
 // =============================================================================
 
-/**
- * Canonical cart item type — shared across:
- *   StorefrontClient (per-item quantity lookup)
- *   CartDrawer      (item list display)
- *   CheckoutForm    (read cart for order summary + order creation)
- *
- * Defined here to avoid circular imports between those files.
- */
-export type CartEntry = {
-  menuItemId: string
-  name: string
+export type SelectedVariant = {
+  groupId: string
+  groupName: string
+  variantName: string
   price: number
-  imageUrl: string | null
-  quantity: number
 }
 
-/** Minimal shape of a menu item required by addItem(). Matches MenuItem fields. */
+export type SelectedAddon = {
+  groupId: string
+  addonName: string
+  price: number
+}
+
+export type CartEntry = {
+  cartEntryId: string // Unique hash for this specific configuration
+  menuItemId: string
+  name: string
+  basePrice: number
+  price: number // Total price (base + variants + addons)
+  imageUrl: string | null
+  quantity: number
+  selectedVariants?: SelectedVariant[]
+  selectedAddons?: SelectedAddon[]
+}
+
+/** Minimal shape of a menu item required by addItem(). */
 interface AddableItem {
   id: string
   name: string
-  price: number
+  basePrice: number
   image_url: string | null
+  selectedVariants?: SelectedVariant[]
+  selectedAddons?: SelectedAddon[]
 }
 
 interface CartContextValue {
-  /** Raw map keyed by menuItemId — use for O(1) per-item quantity lookups */
   cart: Record<string, CartEntry>
-  /** Derived array form — use where iteration is needed (drawer, checkout) */
   cartEntries: CartEntry[]
-  /** Sum of all quantities */
   totalItems: number
-  /** Sum of price × quantity for all entries */
   totalPrice: number
-  /** Add an item from the menu, or increment its quantity if already present */
   addItem: (item: AddableItem) => void
-  /** Increment an existing cart item by 1 (used in drawer) */
-  incrementItem: (itemId: string) => void
-  /** Decrement by 1; removes the item if quantity reaches 0 */
-  decrementItem: (itemId: string) => void
-  /** Remove an item entirely regardless of quantity */
-  removeItem: (itemId: string) => void
-  /** Reset the cart to empty — call after successful order creation */
+  incrementItem: (cartEntryId: string) => void
+  decrementItem: (cartEntryId: string) => void
+  removeItem: (cartEntryId: string) => void
   clearCart: () => void
+  getItemQuantity: (menuItemId: string) => number // Total quantity of a menuItem across all configurations
 }
 
 // =============================================================================
@@ -69,58 +72,79 @@ CartContext.displayName = 'CartContext'
 // Provider
 // =============================================================================
 
-/**
- * CartProvider — wraps the (storefront) layout so cart state persists
- * across client-side navigation between the menu page and checkout page.
- *
- * Cart is in-memory only (intentional MVP decision — see CLAUDE.md).
- * It resets on full page reload.
- */
+function generateEntryId(item: AddableItem): string {
+  // If no customizations, the ID is just the menuItemId
+  if (!item.selectedVariants?.length && !item.selectedAddons?.length) {
+    return item.id
+  }
+  
+  // Sort to ensure identical configurations generate the same ID
+  const varString = item.selectedVariants
+    ? item.selectedVariants.map(v => `${v.groupId}:${v.variantName}`).sort().join('|')
+    : ''
+  const addString = item.selectedAddons
+    ? item.selectedAddons.map(a => `${a.groupId}:${a.addonName}`).sort().join('|')
+    : ''
+
+  return `${item.id}-[V:${varString}]-[A:${addString}]`
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Record<string, CartEntry>>({})
 
   const addItem = useCallback((item: AddableItem) => {
+    const entryId = generateEntryId(item)
+    
+    // Calculate total unit price
+    const variantsPrice = item.selectedVariants?.reduce((sum, v) => sum + v.price, 0) || 0
+    const addonsPrice = item.selectedAddons?.reduce((sum, a) => sum + a.price, 0) || 0
+    const totalPrice = item.basePrice + variantsPrice + addonsPrice
+
     setCart((prev) => ({
       ...prev,
-      [item.id]: {
+      [entryId]: {
+        cartEntryId: entryId,
         menuItemId: item.id,
         name: item.name,
-        price: item.price,
+        basePrice: item.basePrice,
+        price: totalPrice,
         imageUrl: item.image_url,
-        quantity: (prev[item.id]?.quantity ?? 0) + 1,
+        selectedVariants: item.selectedVariants,
+        selectedAddons: item.selectedAddons,
+        quantity: (prev[entryId]?.quantity ?? 0) + 1,
       },
     }))
   }, [])
 
-  const incrementItem = useCallback((itemId: string) => {
+  const incrementItem = useCallback((entryId: string) => {
     setCart((prev) => {
-      if (!prev[itemId]) return prev
+      if (!prev[entryId]) return prev
       return {
         ...prev,
-        [itemId]: { ...prev[itemId], quantity: prev[itemId].quantity + 1 },
+        [entryId]: { ...prev[entryId], quantity: prev[entryId].quantity + 1 },
       }
     })
   }, [])
 
-  const decrementItem = useCallback((itemId: string) => {
+  const decrementItem = useCallback((entryId: string) => {
     setCart((prev) => {
-      if (!prev[itemId]) return prev
-      if (prev[itemId].quantity <= 1) {
+      if (!prev[entryId]) return prev
+      if (prev[entryId].quantity <= 1) {
         const next = { ...prev }
-        delete next[itemId]
+        delete next[entryId]
         return next
       }
       return {
         ...prev,
-        [itemId]: { ...prev[itemId], quantity: prev[itemId].quantity - 1 },
+        [entryId]: { ...prev[entryId], quantity: prev[entryId].quantity - 1 },
       }
     })
   }, [])
 
-  const removeItem = useCallback((itemId: string) => {
+  const removeItem = useCallback((entryId: string) => {
     setCart((prev) => {
       const next = { ...prev }
-      delete next[itemId]
+      delete next[entryId]
       return next
     })
   }, [])
@@ -139,6 +163,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartEntries],
   )
 
+  const getItemQuantity = useCallback((menuItemId: string) => {
+    return cartEntries
+      .filter(entry => entry.menuItemId === menuItemId)
+      .reduce((sum, entry) => sum + entry.quantity, 0)
+  }, [cartEntries])
+
   const value: CartContextValue = {
     cart,
     cartEntries,
@@ -149,6 +179,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     decrementItem,
     removeItem,
     clearCart,
+    getItemQuantity,
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
@@ -158,12 +189,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 // Consumer hook
 // =============================================================================
 
-/**
- * Access the shared cart state from any Client Component within the
- * storefront layout.
- *
- * @throws if called outside a `<CartProvider>` tree.
- */
 export function useCart(): CartContextValue {
   const ctx = useContext(CartContext)
   if (!ctx) {

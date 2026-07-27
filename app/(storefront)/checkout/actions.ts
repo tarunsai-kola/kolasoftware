@@ -14,6 +14,8 @@ export type CheckoutInput = {
   email?: string | null
   deliveryType: 'delivery' | 'pickup'
   address?: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
 export type OrderResult =
@@ -77,7 +79,7 @@ export async function createOrder(
         { phone, name: input.name.trim(), email },
         { onConflict: 'phone', ignoreDuplicates: false },
       )
-      .select('id')
+      .select('id, user_id')
       .single()
 
     if (customerError || !customer) {
@@ -91,11 +93,13 @@ export async function createOrder(
     // ── Step 2: Build the immutable JSONB snapshot ─────────────────────────
     // Never reference live menu_items prices after this point.
     // The snapshot is the ground truth for receipts and refunds.
-    const itemsSnapshot: OrderItemSnapshot[] = cartItems.map((item) => ({
+    const itemsSnapshot = cartItems.map((item) => ({
       menu_item_id: item.menuItemId,
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      selectedVariants: item.selectedVariants,
+      selectedAddons: item.selectedAddons,
     }))
 
     const totalAmount = cartItems.reduce(
@@ -116,6 +120,8 @@ export async function createOrder(
         delivery_type: input.deliveryType,
         delivery_address:
           input.deliveryType === 'delivery' ? (input.address?.trim() ?? null) : null,
+        delivery_lat: input.deliveryType === 'delivery' ? (input.lat ?? null) : null,
+        delivery_lng: input.deliveryType === 'delivery' ? (input.lng ?? null) : null,
         customer_email: email,
       })
       .select('id')
@@ -126,6 +132,33 @@ export async function createOrder(
       return {
         success: false,
         error: 'Failed to place your order. Please try again.',
+      }
+    }
+
+    // ── Step 3.5: Save delivery address if logged in ───────────────────────
+    if (customer.user_id && input.deliveryType === 'delivery' && input.address) {
+      // Basic heuristic: check if this address already exists
+      const { data: existingAddresses } = await supabase
+        .from('customer_addresses')
+        .select('id')
+        .eq('customer_id', customer.id)
+        .eq('address_line', input.address.trim())
+      
+      if (!existingAddresses || existingAddresses.length === 0) {
+        // Find if this should be the default
+        const { count } = await supabase
+          .from('customer_addresses')
+          .select('*', { count: 'exact', head: true })
+          .eq('customer_id', customer.id)
+        
+        await supabase.from('customer_addresses').insert({
+          customer_id: customer.id,
+          label: count === 0 ? 'Home' : 'Other',
+          address_line: input.address.trim(),
+          lat: input.lat ?? null,
+          lng: input.lng ?? null,
+          is_default: count === 0
+        })
       }
     }
 
