@@ -34,6 +34,8 @@ export async function updateRestaurantSettings(formData: FormData) {
   const whatsapp_number = (formData.get('whatsapp_number') as string)?.trim() || null
   const is_accepting_orders = formData.get('is_accepting_orders') === 'true'
   const announcement_message = (formData.get('announcement_message') as string)?.trim() || null
+  const opening_time = (formData.get('opening_time') as string)?.trim() || '09:00:00'
+  const closing_time = (formData.get('closing_time') as string)?.trim() || '22:00:00'
 
   if (!name || !kitchen_email) {
     return { success: false, error: 'Name and Kitchen Email are required.' }
@@ -46,7 +48,8 @@ export async function updateRestaurantSettings(formData: FormData) {
       address, lat, lng, delivery_radius_km,
       is_cod_enabled, is_online_payment_enabled,
       razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret,
-      whatsapp_number, is_accepting_orders, announcement_message
+      whatsapp_number, is_accepting_orders, announcement_message,
+      opening_time, closing_time
     })
     .eq('id', restaurantId)
 

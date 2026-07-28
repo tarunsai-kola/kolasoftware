@@ -23,6 +23,7 @@ interface CartDrawerProps {
   formatPrice: (price: number) => string
   /** Called when the user confirms they want to proceed to checkout */
   onCheckout?: () => void
+  isClosed?: boolean
 }
 
 // =============================================================================
@@ -55,6 +56,7 @@ export default function CartDrawer({
   onRemove,
   formatPrice,
   onCheckout,
+  isClosed = false,
 }: CartDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -255,17 +257,23 @@ export default function CartDrawer({
             </p>
 
             {/* Checkout CTA */}
-            <button
-              onClick={onCheckout}
-              disabled={isEmpty}
-              className="btn-brand w-full py-4 text-base disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={`Proceed to checkout — total ${formatPrice(totalPrice)}`}
-            >
-              <span>Cash on delivery</span>
-              <span className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-sm">
-                {formatPrice(totalPrice)}
-              </span>
-            </button>
+            {isClosed ? (
+              <div className="w-full py-4 text-center text-sm font-bold text-red-600 bg-red-50 rounded-xl">
+                Sorry, we are currently closed.
+              </div>
+            ) : (
+              <button
+                onClick={onCheckout}
+                disabled={isEmpty}
+                className="btn-brand w-full py-4 text-base disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={`Proceed to checkout — total ${formatPrice(totalPrice)}`}
+              >
+                <span>Cash on delivery</span>
+                <span className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-sm">
+                  {formatPrice(totalPrice)}
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>

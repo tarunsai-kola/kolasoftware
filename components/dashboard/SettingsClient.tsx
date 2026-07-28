@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { updateRestaurantSettings, changePassword } from '@/app/(dashboard)/settings/actions'
 import toast from 'react-hot-toast'
+import { createClient } from '@/lib/supabase/client'
+import { v4 as uuidv4 } from 'uuid'
 
 // =============================================================================
 // Types
@@ -32,6 +34,8 @@ interface Restaurant {
   whatsapp_number?: string | null
   is_accepting_orders?: boolean
   announcement_message?: string | null
+  opening_time?: string
+  closing_time?: string
 }
 
 const FONT_OPTIONS = [
@@ -61,6 +65,12 @@ const STATUS_BADGE: Record<string, string> = {
 export default function SettingsClient({ restaurant }: { restaurant: Restaurant }) {
   const [isPending, startTransition] = useTransition()
   const [isPasswordPending, startPasswordTransition] = useTransition()
+
+  const supabase = createClient()
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false)
 
   // Password form state
   const [newPassword, setNewPassword] = useState('')
@@ -94,6 +104,46 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
   // Storefront Status state
   const [isAcceptingOrders, setIsAcceptingOrders] = useState(restaurant.is_accepting_orders ?? true)
   const [announcementMessage, setAnnouncementMessage] = useState(restaurant.announcement_message ?? '')
+  const [openingTime, setOpeningTime] = useState(restaurant.opening_time ?? '09:00:00')
+  const [closingTime, setClosingTime] = useState(restaurant.closing_time ?? '22:00:00')
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'banner') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be less than 2MB')
+      return
+    }
+
+    const setUploading = type === 'logo' ? setIsUploadingLogo : setIsUploadingBanner
+    const setUrl = type === 'logo' ? setLogoUrl : setBannerUrl
+
+    setUploading(true)
+    
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${uuidv4()}.${fileExt}`
+    const filePath = `${restaurant.id}/${fileName}`
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('menu-images')
+      .upload(filePath, file, { upsert: false })
+
+    if (uploadError) {
+      console.error(uploadError)
+      toast.error(`Failed to upload ${type}`)
+      setUploading(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('menu-images')
+      .getPublicUrl(data.path)
+
+    setUrl(publicUrl)
+    setUploading(false)
+    toast.success(`${type === 'logo' ? 'Logo' : 'Banner'} uploaded successfully!`)
+  }
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -236,51 +286,70 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
               </select>
             </Field>
 
-            {/* Logo URL */}
-            <Field label="Logo URL" htmlFor="logo_url" hint="Paste a direct image link (JPEG, PNG, WebP).">
-              <input
-                id="logo_url"
-                name="logo_url"
-                type="url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://example.com/logo.png"
-                className={inputCls}
+            {/* Logo Upload */}
+            <Field label="Restaurant Logo" htmlFor="logo_url" hint="Recommended size: 256x256 (Square). Max 2MB.">
+              <input type="hidden" name="logo_url" value={logoUrl} />
+              <input 
+                type="file" 
+                ref={logoInputRef} 
+                onChange={(e) => handleImageUpload(e, 'logo')} 
+                accept="image/jpeg, image/png, image/webp" 
+                className="hidden" 
               />
-              {logoUrl && (
-                <div className="mt-2 flex items-center gap-3">
-                  <img
-                    src={logoUrl}
-                    alt="Logo preview"
-                    className="h-12 w-12 rounded-full object-cover border border-gray-200 shadow-sm"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                  <span className="text-xs text-gray-400">Logo preview</span>
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="h-16 w-16 rounded-full object-cover border border-gray-200 shadow-sm bg-white" />
+                ) : (
+                  <div className="h-16 w-16 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                    <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => logoInputRef.current?.click()} 
+                  disabled={isUploadingLogo}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors"
+                >
+                  {isUploadingLogo ? 'Uploading...' : (logoUrl ? 'Change Logo' : 'Upload Logo')}
+                </button>
+                {logoUrl && (
+                  <button type="button" onClick={() => setLogoUrl('')} className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">Remove</button>
+                )}
+              </div>
             </Field>
 
-            {/* Banner URL */}
-            <Field label="Banner / Hero Image URL" htmlFor="banner_image_url" hint="Displayed at the top of your storefront menu page.">
-              <input
-                id="banner_image_url"
-                name="banner_image_url"
-                type="url"
-                value={bannerUrl}
-                onChange={(e) => setBannerUrl(e.target.value)}
-                placeholder="https://example.com/banner.jpg"
-                className={inputCls}
+            {/* Banner Upload */}
+            <Field label="Storefront Banner Image" htmlFor="banner_image_url" hint="CRITICAL: This must be a very wide banner (e.g. 1920x600 or 16:9 aspect ratio) with text in the dead center. Do not upload square flyers! Max 2MB.">
+              <input type="hidden" name="banner_image_url" value={bannerUrl} />
+              <input 
+                type="file" 
+                ref={bannerInputRef} 
+                onChange={(e) => handleImageUpload(e, 'banner')} 
+                accept="image/jpeg, image/png, image/webp" 
+                className="hidden" 
               />
-              {bannerUrl && (
-                <div className="mt-2">
-                  <img
-                    src={bannerUrl}
-                    alt="Banner preview"
-                    className="w-full max-w-md h-24 rounded-lg object-cover border border-gray-200 shadow-sm"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
+              <div className="flex flex-col gap-4">
+                {bannerUrl ? (
+                  <img src={bannerUrl} alt="Banner" className="w-full h-32 rounded-lg object-cover border border-gray-200 shadow-sm" />
+                ) : (
+                  <div className="w-full h-32 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                    <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                )}
+                <div className="flex items-center gap-4">
+                  <button 
+                    type="button" 
+                    onClick={() => bannerInputRef.current?.click()} 
+                    disabled={isUploadingBanner}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors"
+                  >
+                    {isUploadingBanner ? 'Uploading...' : (bannerUrl ? 'Change Banner' : 'Upload Banner')}
+                  </button>
+                  {bannerUrl && (
+                    <button type="button" onClick={() => setBannerUrl('')} className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">Remove</button>
+                  )}
                 </div>
-              )}
+              </div>
             </Field>
           </Section>
 
@@ -385,6 +454,31 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
                   <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isAcceptingOrders ? 'translate-x-5' : 'translate-x-0'}`} />
                 </div>
               </label>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Opening Time" htmlFor="opening_time" required>
+                  <input
+                    id="opening_time"
+                    name="opening_time"
+                    type="time"
+                    value={openingTime}
+                    onChange={(e) => setOpeningTime(e.target.value)}
+                    className={inputCls}
+                    required
+                  />
+                </Field>
+                <Field label="Closing Time" htmlFor="closing_time" required>
+                  <input
+                    id="closing_time"
+                    name="closing_time"
+                    type="time"
+                    value={closingTime}
+                    onChange={(e) => setClosingTime(e.target.value)}
+                    className={inputCls}
+                    required
+                  />
+                </Field>
+              </div>
 
               <Field label="Announcement Message (Marquee)" htmlFor="announcement_message" hint="This message will scroll horizontally across your storefront. Leave blank to hide.">
                 <input

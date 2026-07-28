@@ -25,6 +25,10 @@ export interface RestaurantTheme {
   isAcceptingOrders: boolean
   /** Optional announcement message to show as a marquee */
   announcementMessage: string | null
+  /** Daily opening time (HH:mm:ss) */
+  openingTime: string
+  /** Daily closing time (HH:mm:ss) */
+  closingTime: string
 }
 
 /**
@@ -102,6 +106,8 @@ export async function getRestaurantContext(): Promise<RestaurantContext> {
       ...parsed,
       isAcceptingOrders: parsed.isAcceptingOrders ?? true,
       announcementMessage: parsed.announcementMessage ?? null,
+      openingTime: parsed.openingTime ?? '09:00:00',
+      closingTime: parsed.closingTime ?? '22:00:00',
     } as RestaurantTheme
   } catch {
     throw new RestaurantContextError(

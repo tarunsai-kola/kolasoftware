@@ -70,6 +70,39 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null)
   
+  // Calculate if the store is currently open based on IST time
+  const isStoreOpen = useMemo(() => {
+    if (!theme.isAcceptingOrders) return false
+    if (!theme.openingTime || !theme.closingTime) return true
+
+    try {
+      const now = new Date()
+      const istDateStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+      const istDate = new Date(istDateStr)
+      
+      const currentTotalSeconds = istDate.getHours() * 3600 + istDate.getMinutes() * 60 + istDate.getSeconds()
+
+      const parseTime = (t: string) => {
+        const [h, m, s] = t.split(':').map(Number)
+        return (h || 0) * 3600 + (m || 0) * 60 + (s || 0)
+      }
+
+      const openSecs = parseTime(theme.openingTime)
+      const closeSecs = parseTime(theme.closingTime)
+
+      if (openSecs < closeSecs) {
+        // Normal day: e.g., 09:00 to 22:00
+        return currentTotalSeconds >= openSecs && currentTotalSeconds <= closeSecs
+      } else {
+        // Overnight: e.g., 18:00 to 02:00
+        return currentTotalSeconds >= openSecs || currentTotalSeconds <= closeSecs
+      }
+    } catch (e) {
+      console.error('Failed to parse opening hours:', e)
+      return theme.isAcceptingOrders
+    }
+  }, [theme.isAcceptingOrders, theme.openingTime, theme.closingTime])
+  
   // Automatically open auth modal if ?login=true is in the URL
   useEffect(() => {
     if (searchParams?.get('login') === 'true' && !user && !customerLoading) {
@@ -218,7 +251,7 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
           )}
           <div className="flex flex-col">
             <span className="truncate text-sm font-bold text-gray-900">{theme.name}</span>
-            {!theme.isAcceptingOrders && (
+            {!isStoreOpen && (
               <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">
                 Closed
               </span>
@@ -314,11 +347,11 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
                     <MenuItemCard
                       key={item.id}
                       item={item}
-                      quantity={cart[item.id]?.quantity ?? 0} // Temporarily fallback to item.id for simple items. Actually we should use getItemQuantity(item.id)
+                      quantity={cart[item.id]?.quantity ?? 0}
                       totalQuantity={getItemQuantity(item.id)}
-                      isClosed={!theme.isAcceptingOrders}
+                      isClosed={!isStoreOpen}
                       onAdd={() => {
-                        if (!theme.isAcceptingOrders) return
+                        if (!isStoreOpen) return
                         const isCustomizable = (item.variant_groups && item.variant_groups.length > 0) || (item.addon_groups && item.addon_groups.length > 0)
                         if (isCustomizable) {
                           setCustomizingItem(item)
@@ -356,14 +389,14 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
         onRemove={removeItem}
         formatPrice={formatPrice}
         onCheckout={() => {
-          closeCart()
-          // If not logged in → open auth modal, then redirect
           if (!user) {
+            closeCart()
             setIsAuthOpen(true)
           } else {
             router.push('/checkout')
           }
         }}
+        isClosed={!isStoreOpen}
       />
 
       {/* ── Customer Auth Modal ───────────────────────────────────────────────── */}

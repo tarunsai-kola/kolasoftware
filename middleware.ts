@@ -19,6 +19,8 @@ interface RestaurantRow {
   whatsapp_number: string | null
   is_accepting_orders: boolean
   announcement_message: string | null
+  opening_time: string
+  closing_time: string
   status: 'active' | 'suspended' | 'pending_setup'
 }
 
@@ -32,6 +34,8 @@ interface RestaurantThemeHeader {
   whatsappNumber: string | null
   isAcceptingOrders: boolean
   announcementMessage: string | null
+  openingTime: string
+  closingTime: string
 }
 
 // =============================================================================
@@ -132,7 +136,7 @@ async function lookupRestaurant(
   // URLSearchParams.set() handles URL-encoding of the entire value.
   const params = new URLSearchParams({
     or: `(domain.eq.${hostname},subdomain.eq.${subdomainSlug})`,
-    select: 'id,name,logo_url,primary_color,font_family,banner_image_url,whatsapp_number,is_accepting_orders,announcement_message,status',
+    select: 'id,name,logo_url,primary_color,font_family,banner_image_url,whatsapp_number,is_accepting_orders,announcement_message,opening_time,closing_time,status',
     limit: '1',
   })
 
@@ -290,6 +294,8 @@ export async function middleware(request: NextRequest) {
     whatsappNumber: restaurant.whatsapp_number,
     isAcceptingOrders: restaurant.is_accepting_orders ?? true,
     announcementMessage: restaurant.announcement_message ?? null,
+    openingTime: restaurant.opening_time ?? '09:00:00',
+    closingTime: restaurant.closing_time ?? '22:00:00',
   }
 
   // Clone the incoming headers and add our custom headers
