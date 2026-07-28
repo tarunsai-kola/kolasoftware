@@ -40,11 +40,26 @@ export default async function CustomerOrdersPage() {
   }
 
   // 2. Fetch the customer profile (don't fail if they don't have one yet)
-  const { data: customer, error: customerError } = await supabase
+  let { data: customer, error: customerError } = await supabase
     .from('customers')
     .select('id, name, email, phone')
     .eq('user_id', user.id)
     .maybeSingle()
+
+  // Fallback: If no customer found by user_id, try to find by user.email
+  if (!customer && user.email) {
+    const { data: emailCustomer } = await supabase
+      .from('customers')
+      .select('id, name, email, phone')
+      .eq('email', user.email)
+      .maybeSingle()
+    
+    if (emailCustomer) {
+      customer = emailCustomer
+      // Optionally, we could link the user_id here to self-heal
+      await supabase.from('customers').update({ user_id: user.id }).eq('id', customer.id)
+    }
+  }
 
   let defaultAddress = null
   if (customer) {
@@ -79,6 +94,18 @@ export default async function CustomerOrdersPage() {
     } else if (fetchedOrders) {
       orders = fetchedOrders
     }
+  } else if (user.email) {
+    // If we STILL don't have a customer profile, we can fetch orders directly by customer_email as a last resort
+    const { data: fetchedOrders, error } = await supabase
+      .from('orders')
+      .select('id, status, total_amount, created_at, items')
+      .eq('customer_email', user.email)
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      
+    if (fetchedOrders) {
+      orders = fetchedOrders
+    }
   }
 
   const activeOrders = orders.filter(o => !['completed', 'cancelled', 'refunded'].includes(o.status))
@@ -95,19 +122,17 @@ export default async function CustomerOrdersPage() {
           <span className="text-sm font-bold text-gray-900">My Orders</span>
         </div>
         
-        {customer && (
-          <ProfileDropdown 
-            name={customer.name || ''}
-            email={customer.email || ''}
-            phone={customer.phone || ''}
-            address={defaultAddress}
-          />
-        )}
+        <ProfileDropdown 
+          name={customer?.name || user.email?.split('@')[0] || ''}
+          email={customer?.email || user.email || ''}
+          phone={customer?.phone || ''}
+          address={defaultAddress}
+        />
       </header>
 
       <main className="mx-auto max-w-lg px-4 py-6">
         <h1 className="mb-6 text-2xl font-extrabold text-gray-900">
-          Hello, {customer?.name?.split(' ')[0] || 'there'}!
+          Hello, {customer?.name?.split(' ')[0] || user.email?.split('@')[0] || 'there'}!
         </h1>
 
         {/* ── Active Orders ─────────────────────────────────────────────────── */}

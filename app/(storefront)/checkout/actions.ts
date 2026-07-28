@@ -1,7 +1,7 @@
 'use server'
 
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient, createClient } from '@/lib/supabase/server'
 import type { CartEntry } from '@/components/storefront/CartContext'
 
 // =============================================================================
@@ -170,10 +170,18 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
     // ── Step 1: Upsert customer by phone ───────────────────────────────────
     // ON CONFLICT (phone) → update name and email so returning customers
     // see their latest details pre-filled.
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    
+    const upsertPayload: any = { phone, name: input.name.trim(), email }
+    if (user?.id) {
+      upsertPayload.user_id = user.id
+    }
+
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .upsert(
-        { phone, name: input.name.trim(), email },
+        upsertPayload,
         { onConflict: 'phone', ignoreDuplicates: false },
       )
       .select('id, user_id')
