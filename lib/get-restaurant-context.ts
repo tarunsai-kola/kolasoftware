@@ -19,6 +19,12 @@ export interface RestaurantTheme {
   fontFamily: string
   /** URL of the hero/banner image, or null if not set */
   bannerImageUrl: string | null
+  /** WhatsApp contact number, e.g. "+1234567890" or null if not set */
+  whatsappNumber: string | null
+  /** Whether the restaurant is currently open and accepting orders */
+  isAcceptingOrders: boolean
+  /** Optional announcement message to show as a marquee */
+  announcementMessage: string | null
 }
 
 /**
@@ -91,7 +97,12 @@ export async function getRestaurantContext(): Promise<RestaurantContext> {
 
   let theme: RestaurantTheme
   try {
-    theme = JSON.parse(themeJson) as RestaurantTheme
+    const parsed = JSON.parse(themeJson)
+    theme = {
+      ...parsed,
+      isAcceptingOrders: parsed.isAcceptingOrders ?? true,
+      announcementMessage: parsed.announcementMessage ?? null,
+    } as RestaurantTheme
   } catch {
     throw new RestaurantContextError(
       `Header "${HEADER_RESTAURANT_THEME}" contains invalid JSON: ${themeJson}`,
@@ -104,6 +115,11 @@ export async function getRestaurantContext(): Promise<RestaurantContext> {
       `Parsed theme is missing required fields. Got: ${themeJson}`,
     )
   }
+
+  console.log('[getRestaurantContext] Parsed theme:', {
+    isAcceptingOrders: theme.isAcceptingOrders,
+    announcementMessage: theme.announcementMessage
+  })
 
   return { restaurantId, theme }
 }

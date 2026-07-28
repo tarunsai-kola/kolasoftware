@@ -115,7 +115,7 @@ export default function NewRestaurantPage() {
   if (successData) {
     const storefrontUrl = successData.domain 
       ? `https://${successData.domain}` 
-      : `https://${successData.subdomain}.yourplatform.com`
+      : `https://${successData.subdomain}.kolasolution.com`
 
     return (
       <div className="mx-auto max-w-2xl mt-12">
@@ -208,7 +208,7 @@ export default function NewRestaurantPage() {
               <div className="relative mt-1 flex rounded-md shadow-sm">
                 <input type="text" required value={subdomain} onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} className="block w-full min-w-0 flex-1 rounded-none rounded-l-lg border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm" />
                 <span className="inline-flex items-center rounded-r-lg border border-l-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
-                  .yourplatform.com
+                  .kolasolution.com
                 </span>
               </div>
             </div>

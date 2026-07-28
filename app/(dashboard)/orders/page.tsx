@@ -19,6 +19,8 @@ export default async function OrdersPage() {
   // - Only paid orders
   // - Exclude cancelled orders (they aren't relevant for the active kitchen board)
   // - Order by newest first
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
   const { data: orders, error } = await supabase
     .from('orders')
     .select(
@@ -37,7 +39,7 @@ export default async function OrdersPage() {
     `
     )
     .eq('restaurant_id', restaurantId)
-    .in('status', ['new', 'preparing', 'ready', 'completed'])
+    .or(`status.in.(new,preparing,ready),and(status.eq.completed,created_at.gte.${yesterday})`)
     .order('created_at', { ascending: false })
 
   if (error) {

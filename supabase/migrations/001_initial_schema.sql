@@ -25,7 +25,7 @@ CREATE TABLE restaurants (
   id                   uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   name                 text        NOT NULL,
   domain               text        UNIQUE NOT NULL,   -- e.g. "spicehouse.com"
-  subdomain            text        UNIQUE NOT NULL,   -- e.g. "spicehouse" → spicehouse.yourplatform.com
+  subdomain            text        UNIQUE NOT NULL,   -- e.g. "spicehouse" → spicehouse.kolasolution.com
   logo_url             text,
   primary_color        text        NOT NULL DEFAULT '#D85A30',
   font_family          text        NOT NULL DEFAULT 'Inter',
@@ -48,7 +48,7 @@ COMMENT ON COLUMN restaurants.domain IS
   'Full custom domain the restaurant owns, e.g. spicehouse.com. Used by middleware for tenant lookup.';
 
 COMMENT ON COLUMN restaurants.subdomain IS
-  'Platform subdomain slug, e.g. "spicehouse" → spicehouse.yourplatform.com. Fallback when no custom domain.';
+  'Platform subdomain slug, e.g. "spicehouse" → spicehouse.kolasolution.com. Fallback when no custom domain.';
 
 COMMENT ON COLUMN restaurants.owner_id IS
   'The Supabase auth user who owns this restaurant. Also present in restaurant_staff with role=owner.';

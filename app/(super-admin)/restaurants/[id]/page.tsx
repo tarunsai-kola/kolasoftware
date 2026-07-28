@@ -42,7 +42,7 @@ export default async function RestaurantDetailPage({
   // Construct impersonation URL
   const impersonationUrl = restaurant.domain
     ? `https://${restaurant.domain}`
-    : `https://${restaurant.subdomain}.yourplatform.com`
+    : `https://${restaurant.subdomain}.kolasolution.com`
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">

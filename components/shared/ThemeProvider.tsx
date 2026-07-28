@@ -17,6 +17,9 @@ export interface RestaurantTheme {
   primaryColor: string
   fontFamily: string
   bannerImageUrl: string | null
+  whatsappNumber: string | null
+  isAcceptingOrders: boolean
+  announcementMessage: string | null
 }
 
 export interface RestaurantContextValue {
@@ -39,6 +42,9 @@ const THEME_DEFAULTS = {
   name: '',
   logoUrl: null,
   bannerImageUrl: null,
+  whatsappNumber: null,
+  isAcceptingOrders: true,
+  announcementMessage: null,
 } satisfies RestaurantTheme
 
 // =============================================================================
@@ -59,32 +65,6 @@ export interface ThemeProviderProps {
   children: ReactNode
 }
 
-/**
- * ThemeProvider — inject per-restaurant CSS custom properties and expose
- * restaurant context to the entire Client Component tree.
- *
- * **Where to render this:**
- * In the storefront and dashboard layouts (server components) that read the
- * middleware-injected headers via `getRestaurantContext()`, then pass the
- * result down as props to this component.
- *
- * **What it does:**
- * 1. Merges incoming theme props with safe defaults (never crashes on nulls).
- * 2. Sets CSS custom properties on `document.documentElement` via useEffect
- *    so they cascade to every element — no inline style pollution.
- * 3. Also writes an inline `style` attribute on the wrapping `<div>` for
- *    SSR correctness (custom properties are available on first paint).
- * 4. Provides `useRestaurantContext()` to any nested client component.
- *
- * @example
- * // In a Server Component layout:
- * const { restaurantId, theme } = await getRestaurantContext()
- * return (
- *   <ThemeProvider restaurantId={restaurantId} theme={theme}>
- *     {children}
- *   </ThemeProvider>
- * )
- */
 export function ThemeProvider({
   restaurantId,
   theme: rawTheme,
@@ -97,6 +77,9 @@ export function ThemeProvider({
     name: rawTheme.name || THEME_DEFAULTS.name,
     logoUrl: rawTheme.logoUrl ?? null,
     bannerImageUrl: rawTheme.bannerImageUrl ?? null,
+    whatsappNumber: rawTheme.whatsappNumber ?? null,
+    isAcceptingOrders: rawTheme.isAcceptingOrders ?? true,
+    announcementMessage: rawTheme.announcementMessage ?? null,
   }
 
   // Derived colours — computed once so they're consistent across SSR and client

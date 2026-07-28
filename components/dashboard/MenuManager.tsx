@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import MenuListTable from './menu/MenuListTable'
 import MenuBuilder from './menu/MenuBuilder'
+import { createClient } from '@/lib/supabase/client'
+import toast from 'react-hot-toast'
 
 // Basic type matching Supabase
 export interface MenuItem {
@@ -33,6 +35,88 @@ export default function MenuManager({ initialItems, categories: initialCategorie
   // View states
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+  
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isPastingJson, setIsPastingJson] = useState(false)
+  const [pastedJson, setPastedJson] = useState('')
+
+  const processMenuJson = async (jsonString: string) => {
+    try {
+      setIsUploading(true)
+      const json = JSON.parse(jsonString)
+      if (!Array.isArray(json)) {
+        throw new Error('JSON must be an array of menu items')
+      }
+
+      const supabase = createClient()
+      
+      // Format for DB
+      const dbItems = json.map((item: any) => ({
+        restaurant_id: restaurantId,
+        name: item.name,
+        description: item.description || null,
+        price: item.price || 0,
+        category: item.category || 'Uncategorized',
+        image_url: null, // explicitly idle as requested
+        is_available: item.is_available !== undefined ? item.is_available : true,
+        sort_order: item.sort_order || 0,
+        // other defaults
+        food_type: item.food_type || 'veg',
+        cuisine_tags: item.cuisine_tags || [],
+        prep_time_minutes: item.prep_time_minutes || 15,
+        spice_level: item.spice_level || 'none',
+        sku: item.sku || null,
+        discounted_price: item.discounted_price || null,
+        dine_in_price: item.dine_in_price || null,
+        delivery_price: item.delivery_price || null,
+        variant_groups: item.variant_groups || [],
+        addon_groups: item.addon_groups || [],
+        schedule_type: item.schedule_type || 'always',
+        schedule_slots: item.schedule_slots || []
+      }))
+
+      const { data, error } = await supabase
+        .from('menu_items')
+        .insert(dbItems)
+        .select()
+
+      if (error) throw error
+
+      toast.success(`Successfully added ${data.length} items!`)
+      
+      // Update local state
+      setItems(prev => [...prev, ...(data as MenuItem[])])
+      
+      // Update categories
+      const newCategories = new Set(categories)
+      data.forEach(item => newCategories.add(item.category))
+      setCategories(Array.from(newCategories).sort())
+      
+      setIsPastingJson(false)
+      setPastedJson('')
+
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Failed to parse JSON. Ensure format is correct.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      await processMenuJson(event.target?.result as string)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+    reader.readAsText(file)
+  }
 
   const handleSaveMenuBuilder = (savedItem: MenuItem) => {
     setIsBuilderOpen(false)
@@ -78,7 +162,65 @@ export default function MenuManager({ initialItems, categories: initialCategorie
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6">
+    <div className="flex flex-col h-full space-y-6 overflow-y-auto pb-6 overflow-x-hidden">
+      {/* Sample JSON Reference */}
+      <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl shadow-sm text-sm">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="font-bold text-indigo-900">Sample JSON Format for Upload</h3>
+          <span className="text-indigo-600 text-xs">(Images can be uploaded manually later)</span>
+        </div>
+        <pre className="bg-white p-3 rounded border border-indigo-100 text-indigo-800 overflow-x-auto">
+          {`[
+  {
+    "name": "Classic Burger",
+    "description": "Juicy beef patty with lettuce and tomato",
+    "price": 12.99,
+    "category": "Main Course",
+    "is_available": true,
+    "sort_order": 1,
+    "food_type": "non-veg",
+    "prep_time_minutes": 15,
+    "spice_level": "none"
+  }
+]`}
+        </pre>
+      </div>
+
+      <input 
+        type="file" 
+        accept=".json" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        className="hidden" 
+      />
+
+      {isPastingJson && (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+          <h3 className="font-bold text-gray-900">Paste JSON Data</h3>
+          <textarea
+            value={pastedJson}
+            onChange={(e) => setPastedJson(e.target.value)}
+            className="w-full h-32 p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm text-gray-900 bg-white"
+            placeholder="Paste your JSON array here..."
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setIsPastingJson(false)}
+              className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => processMenuJson(pastedJson)}
+              disabled={isUploading || !pastedJson.trim()}
+              className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              {isUploading ? 'Saving...' : 'Save JSON'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
@@ -93,6 +235,19 @@ export default function MenuManager({ initialItems, categories: initialCategorie
               Preview Menu
             </button>
           )}
+          <button
+            onClick={() => setIsPastingJson(!isPastingJson)}
+            className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            Paste JSON
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="flex-1 sm:flex-none px-4 py-2 border border-indigo-200 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors disabled:opacity-50"
+          >
+            {isUploading ? 'Uploading...' : 'Upload JSON'}
+          </button>
           <button
             onClick={() => {
               setEditingItem(null)
@@ -127,8 +282,18 @@ export default function MenuManager({ initialItems, categories: initialCategorie
               >
                 Create first item
               </button>
-              <button className="px-8 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all">
-                Import from spreadsheet
+              <button 
+                onClick={() => setIsPastingJson(true)}
+                className="px-8 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all"
+              >
+                Paste JSON
+              </button>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-8 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                {isUploading ? 'Uploading...' : 'Upload JSON'}
               </button>
             </div>
           </div>

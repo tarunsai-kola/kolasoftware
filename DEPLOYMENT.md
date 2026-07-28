@@ -24,13 +24,13 @@ Required variables:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_SITE_URL` (Set this to your production root domain, e.g., `https://yourplatform.com`)
-- `PLATFORM_ADMIN_DOMAIN` (e.g., `admin.yourplatform.com`)
+- `NEXT_PUBLIC_SITE_URL` (Set this to your production root domain, e.g., `https://kolasolution.com`)
+- `PLATFORM_ADMIN_DOMAIN` (e.g., `admin.kolasolution.com`)
 - `RAZORPAY_KEY_ID`
 - `RAZORPAY_KEY_SECRET`
 - `RAZORPAY_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
-- `RESEND_FROM_EMAIL` (e.g., `orders@yourplatform.com`)
+- `RESEND_FROM_EMAIL` (e.g., `orders@kolasolution.com`)
 - `VERCEL_API_TOKEN` (Create this in Vercel Account Settings > Tokens)
 - `VERCEL_PROJECT_ID` (Find this in Vercel Project Settings > General)
 
@@ -40,11 +40,11 @@ Once added, click **Deploy**.
 
 ## 3. Wildcard Subdomain Support
 
-To allow automatic tenant provisioning (e.g., `burgerjoint.yourplatform.com`):
+To allow automatic tenant provisioning (e.g., `burgerjoint.kolasolution.com`):
 
 1. Go to your Vercel Project Settings > **Domains**.
-2. Add your root domain (e.g., `yourplatform.com`). Vercel will prompt you to configure the DNS records in your registrar.
-3. Add a wildcard domain by typing `*.yourplatform.com`.
+2. Add your root domain (e.g., `kolasolution.com`). Vercel will prompt you to configure the DNS records in your registrar.
+3. Add a wildcard domain by typing `*.kolasolution.com`.
 4. Vercel will ask you to add a specific TXT or CNAME record to your DNS provider to verify wildcard ownership. Complete this step.
 5. Once verified, any subdomain request will route to your Next.js app, where our `middleware.ts` will parse the host and load the correct tenant.
 
@@ -94,7 +94,7 @@ The platform relies on a Supabase Database Webhook + Edge Function to dispatch e
    ```
 2. Set the secrets securely in the Edge Function environment:
    ```bash
-   npx supabase secrets set --project-ref your-production-project-id RESEND_API_KEY=your_key RESEND_FROM_EMAIL=orders@yourplatform.com
+   npx supabase secrets set --project-ref your-production-project-id RESEND_API_KEY=your_key RESEND_FROM_EMAIL=orders@kolasolution.com
    ```
 3. **Database Webhook Trigger**:
    - In your Supabase Dashboard, navigate to **Database** > **Webhooks**.

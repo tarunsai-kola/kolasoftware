@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 import { useCart } from './CartContext'
 import { useCustomer, type CustomerAddress } from './CustomerContext'
 import { useRestaurantContext } from '@/components/shared/ThemeProvider'
-import { createOrder } from '@/app/(storefront)/checkout/actions'
+import { createOrder, validateCoupon } from '@/app/(storefront)/checkout/actions'
 import dynamic from 'next/dynamic'
 
 const LocationPicker = dynamic(() => import('./LocationPicker'), {
@@ -45,6 +45,7 @@ const schema = z
       .optional(),
 
     deliveryType: z.enum(['delivery', 'pickup']),
+    paymentMethod: z.enum(['cod', 'online']),
 
     address: z.string().trim().optional(),
     lat: z.number().optional(),
@@ -79,7 +80,15 @@ function formatPrice(price: number): string {
 // CheckoutForm
 // =============================================================================
 
-export default function CheckoutForm() {
+export interface CheckoutFormProps {
+  isCodEnabled?: boolean
+  isOnlinePaymentEnabled?: boolean
+}
+
+export default function CheckoutForm({
+  isCodEnabled = true,
+  isOnlinePaymentEnabled = false
+}: CheckoutFormProps) {
   const router = useRouter()
   const { theme } = useRestaurantContext()
   const { cartEntries, totalPrice, clearCart } = useCart()
@@ -89,6 +98,11 @@ export default function CheckoutForm() {
   // Address selection state
   const [showNewAddressMap, setShowNewAddressMap] = useState(false)
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<{code: string, discount: number} | null>(null)
+  const [isApplyingCoupon, startCouponTransition] = useTransition()
 
   useEffect(() => {
     if (cartEntries.length === 0) {
@@ -104,11 +118,42 @@ export default function CheckoutForm() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { deliveryType: 'delivery' },
+    defaultValues: {
+      name: '',
+      phone: '',
+      email: '',
+      deliveryType: 'delivery',
+      paymentMethod: isOnlinePaymentEnabled ? 'online' : 'cod',
+      address: '',
+    },
   })
 
   const deliveryType = watch('deliveryType')
+  const paymentMethod = watch('paymentMethod')
+  const phone = watch('phone')
   const isLoading = isSubmitting || isPending
+  const finalPrice = Math.max(0, totalPrice - (appliedCoupon?.discount || 0))
+
+  const handleApplyCoupon = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!couponCode.trim()) return
+    startCouponTransition(async () => {
+      const result = await validateCoupon(couponCode, totalPrice, phone || null)
+      if (result.success) {
+        setAppliedCoupon({ code: result.code!, discount: result.discountAmount! })
+        toast.success(`Coupon applied! Saved ${formatPrice(result.discountAmount!)}`)
+      } else {
+        setAppliedCoupon(null)
+        toast.error(result.error)
+      }
+    })
+  }
+
+  const handleRemoveCoupon = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setAppliedCoupon(null)
+    setCouponCode('')
+  }
 
   // ── Sync customer to form ──────────────────────────────────────────────────
   useEffect(() => {
@@ -175,6 +220,8 @@ export default function CheckoutForm() {
           address: data.address || null,
           lat: data.lat,
           lng: data.lng,
+          couponCode: appliedCoupon?.code || null,
+          paymentMethod: data.paymentMethod,
         },
         cartEntries,
       )
@@ -186,7 +233,12 @@ export default function CheckoutForm() {
 
       toast.success('Order placed successfully!', { id: toastId, duration: 4000 })
       clearCart()
-      router.push('/')
+      
+      if (data.paymentMethod === 'online') {
+        router.push(`/payment/${result.orderId}`)
+      } else {
+        router.push(`/order-confirmed/${result.orderId}`)
+      }
     })
   }
 
@@ -354,23 +406,91 @@ export default function CheckoutForm() {
           )}
         </FormSection>
 
+        {/* ── Payment Method ─────────────────────────────────────────── */}
+        <FormSection title="Payment Method">
+          <div className="grid grid-cols-2 gap-4">
+            <label
+              className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-all duration-200 ${
+                paymentMethod === 'cod'
+                  ? 'border-[var(--restaurant-primary)] bg-[var(--restaurant-primary-muted)]'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              } ${!isCodEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  value="cod"
+                  {...register('paymentMethod')}
+                  disabled={!isCodEnabled}
+                  className="h-4 w-4 border-gray-300 text-[var(--restaurant-primary)] focus:ring-[var(--restaurant-primary)]"
+                />
+                <span className="text-sm font-semibold text-gray-900">Cash on Delivery</span>
+              </div>
+            </label>
+
+            <label
+              className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 transition-all duration-200 ${
+                paymentMethod === 'online'
+                  ? 'border-[var(--restaurant-primary)] bg-[var(--restaurant-primary-muted)]'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              } ${!isOnlinePaymentEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  value="online"
+                  {...register('paymentMethod')}
+                  disabled={!isOnlinePaymentEnabled}
+                  className="h-4 w-4 border-gray-300 text-[var(--restaurant-primary)] focus:ring-[var(--restaurant-primary)]"
+                />
+                <span className="text-sm font-semibold text-gray-900">Pay Now (Online)</span>
+              </div>
+            </label>
+          </div>
+          {errors.paymentMethod && (
+            <p className="text-xs font-medium text-red-600 mt-1">⚠ {errors.paymentMethod.message}</p>
+          )}
+        </FormSection>
+
         <div className="hidden lg:block">
-          <SubmitButton isLoading={isLoading} totalPrice={totalPrice} formatPrice={formatPrice} />
+          <SubmitButton isClosed={!theme.isAcceptingOrders} isLoading={isLoading} totalPrice={finalPrice} formatPrice={formatPrice} />
         </div>
       </form>
 
       {/* ── Right: Order Summary ────────────────────────────────────────────── */}
       <aside className="hidden lg:block lg:sticky lg:top-[130px]">
-        <OrderSummaryPanel cartEntries={cartEntries} totalPrice={totalPrice} formatPrice={formatPrice} />
+        <OrderSummaryPanel 
+          cartEntries={cartEntries} 
+          totalPrice={totalPrice} 
+          finalPrice={finalPrice}
+          formatPrice={formatPrice}
+          couponCode={couponCode}
+          setCouponCode={setCouponCode}
+          appliedCoupon={appliedCoupon}
+          handleApplyCoupon={handleApplyCoupon}
+          handleRemoveCoupon={handleRemoveCoupon}
+          isApplyingCoupon={isApplyingCoupon}
+        />
       </aside>
 
       <div className="mt-6 lg:hidden">
-        <OrderSummaryPanel cartEntries={cartEntries} totalPrice={totalPrice} formatPrice={formatPrice} />
+        <OrderSummaryPanel 
+          cartEntries={cartEntries} 
+          totalPrice={totalPrice} 
+          finalPrice={finalPrice}
+          formatPrice={formatPrice}
+          couponCode={couponCode}
+          setCouponCode={setCouponCode}
+          appliedCoupon={appliedCoupon}
+          handleApplyCoupon={handleApplyCoupon}
+          handleRemoveCoupon={handleRemoveCoupon}
+          isApplyingCoupon={isApplyingCoupon}
+        />
       </div>
 
       {/* Mobile submit */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-4 backdrop-blur-sm lg:hidden">
-        <SubmitButton isLoading={isLoading} totalPrice={totalPrice} formatPrice={formatPrice} formId="checkout-form" />
+        <SubmitButton isClosed={!theme.isAcceptingOrders} isLoading={isLoading} totalPrice={finalPrice} formatPrice={formatPrice} formId="checkout-form" />
       </div>
       <div className="h-24 lg:hidden" aria-hidden="true" />
     </div>
@@ -403,19 +523,21 @@ function Field({ label, htmlFor, hint, error, required, children }: { label: str
   )
 }
 
-function SubmitButton({ isLoading, totalPrice, formatPrice, formId }: { isLoading: boolean; totalPrice: number; formatPrice: (p: number) => string; formId?: string }) {
+function SubmitButton({ isClosed, isLoading, totalPrice, formatPrice, formId }: { isClosed?: boolean; isLoading: boolean; totalPrice: number; formatPrice: (p: number) => string; formId?: string }) {
   return (
     <button
       type="submit"
       form={formId}
-      disabled={isLoading}
-      className="btn-brand w-full py-4 text-base shadow-lg disabled:opacity-60"
+      disabled={isLoading || isClosed}
+      className={`w-full py-4 text-base shadow-lg disabled:opacity-60 ${isClosed ? 'bg-gray-300 text-gray-500 cursor-not-allowed rounded-full font-bold tracking-wide' : 'btn-brand'}`}
     >
-      {isLoading ? (
+      {isClosed ? (
+        <span className="flex items-center justify-center gap-2">Restaurant is Closed</span>
+      ) : isLoading ? (
         <span className="flex items-center justify-center gap-2">Processing…</span>
       ) : (
         <span className="flex items-center justify-center gap-2">
-          Place order (COD)
+          Place order
           <span className="rounded-md bg-white/20 px-2 py-0.5 text-sm font-bold">{formatPrice(totalPrice)}</span>
         </span>
       )}
@@ -425,7 +547,31 @@ function SubmitButton({ isLoading, totalPrice, formatPrice, formId }: { isLoadin
 
 import type { CartEntry } from './CartContext'
 
-function OrderSummaryPanel({ cartEntries, totalPrice, formatPrice }: { cartEntries: CartEntry[]; totalPrice: number; formatPrice: (p: number) => string }) {
+interface OrderSummaryProps {
+  cartEntries: CartEntry[]
+  totalPrice: number
+  finalPrice: number
+  formatPrice: (p: number) => string
+  couponCode: string
+  setCouponCode: (c: string) => void
+  appliedCoupon: { code: string, discount: number } | null
+  handleApplyCoupon: (e: React.MouseEvent) => void
+  handleRemoveCoupon: (e: React.MouseEvent) => void
+  isApplyingCoupon: boolean
+}
+
+function OrderSummaryPanel({ 
+  cartEntries, 
+  totalPrice, 
+  finalPrice,
+  formatPrice,
+  couponCode,
+  setCouponCode,
+  appliedCoupon,
+  handleApplyCoupon,
+  handleRemoveCoupon,
+  isApplyingCoupon
+}: OrderSummaryProps) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
@@ -440,8 +586,8 @@ function OrderSummaryPanel({ cartEntries, totalPrice, formatPrice }: { cartEntri
             </div>
             <div className="flex flex-1 flex-col min-w-0">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm text-gray-800">{entry.name} <span className="text-gray-400">×{entry.quantity}</span></span>
-                <span className="shrink-0 text-sm font-semibold tabular-nums">{formatPrice(entry.price * entry.quantity)}</span>
+                <span className="truncate text-sm text-gray-800">{entry.name} <span className="text-gray-500">×{entry.quantity}</span></span>
+                <span className="shrink-0 text-sm font-semibold text-gray-900 tabular-nums">{formatPrice(entry.price * entry.quantity)}</span>
               </div>
               
               {/* Customizations */}
@@ -459,9 +605,64 @@ function OrderSummaryPanel({ cartEntries, totalPrice, formatPrice }: { cartEntri
           </li>
         ))}
       </ul>
-      <div className="mt-4 flex items-baseline justify-between border-t border-gray-100 pt-4">
-        <span className="text-sm font-medium text-gray-500">Subtotal</span>
-        <span className="text-lg font-extrabold tabular-nums text-[var(--restaurant-primary)]">{formatPrice(totalPrice)}</span>
+      
+      {/* Coupon Section */}
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        {!appliedCoupon ? (
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder="Promo code" 
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 uppercase placeholder:text-gray-400 placeholder:normal-case focus:border-gray-400 focus:outline-none"
+            />
+            <button 
+              type="button"
+              disabled={isApplyingCoupon || !couponCode.trim()}
+              onClick={handleApplyCoupon}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {isApplyingCoupon ? '...' : 'Apply'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏷️</span>
+              <div>
+                <p className="text-xs font-bold text-green-800">{appliedCoupon.code}</p>
+                <p className="text-[11px] text-green-700">Coupon applied</p>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              onClick={handleRemoveCoupon}
+              className="text-xs font-semibold text-red-600 hover:text-red-800"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-4">
+        {appliedCoupon && (
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-gray-500">Subtotal</span>
+            <span className="font-medium text-gray-700 tabular-nums">{formatPrice(totalPrice)}</span>
+          </div>
+        )}
+        {appliedCoupon && (
+          <div className="flex items-baseline justify-between text-sm text-green-600">
+            <span>Discount</span>
+            <span className="font-semibold tabular-nums">-{formatPrice(appliedCoupon.discount)}</span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between mt-1">
+          <span className="text-sm font-medium text-gray-900">Total</span>
+          <span className="text-lg font-extrabold tabular-nums text-[var(--restaurant-primary)]">{formatPrice(finalPrice)}</span>
+        </div>
       </div>
     </div>
   )

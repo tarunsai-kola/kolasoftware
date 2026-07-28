@@ -7,6 +7,7 @@ interface MenuItemCardProps {
   item: MenuItem
   quantity: number
   totalQuantity?: number
+  isClosed?: boolean
   onAdd: () => void
   onDecrement: () => void
   formatPrice: (price: number) => string
@@ -16,6 +17,7 @@ export default function MenuItemCard({
   item,
   quantity,
   totalQuantity = quantity,
+  isClosed = false,
   onAdd,
   onDecrement,
   formatPrice,
@@ -75,7 +77,7 @@ export default function MenuItemCard({
             Zomato puts it on the right side. */}
         {!showImage && (
           <div className="mt-4 sm:hidden">
-            <ActionButton isCustomizable={isCustomizable} quantity={quantity} onAdd={onAdd} onDecrement={onDecrement} />
+            <ActionButton isCustomizable={isCustomizable} quantity={quantity} isClosed={isClosed} onAdd={onAdd} onDecrement={onDecrement} />
           </div>
         )}
       </div>
@@ -98,7 +100,7 @@ export default function MenuItemCard({
             
             {/* Overlapping Button */}
             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10">
-              <ActionButton isCustomizable={isCustomizable} quantity={quantity} onAdd={onAdd} onDecrement={onDecrement} />
+              <ActionButton isCustomizable={isCustomizable} quantity={quantity} isClosed={isClosed} onAdd={onAdd} onDecrement={onDecrement} />
             </div>
           </div>
         )}
@@ -106,7 +108,7 @@ export default function MenuItemCard({
         {/* If NO image, the button just sits on the right vertically centered (hidden on mobile to show it bottom left instead) */}
         {!showImage && (
           <div className="hidden sm:block">
-            <ActionButton isCustomizable={isCustomizable} quantity={quantity} onAdd={onAdd} onDecrement={onDecrement} />
+            <ActionButton isCustomizable={isCustomizable} quantity={quantity} isClosed={isClosed} onAdd={onAdd} onDecrement={onDecrement} />
           </div>
         )}
 
@@ -122,14 +124,27 @@ export default function MenuItemCard({
 function ActionButton({ 
   isCustomizable,
   quantity, 
+  isClosed,
   onAdd, 
   onDecrement 
 }: { 
   isCustomizable: boolean | undefined | null
   quantity: number
+  isClosed?: boolean
   onAdd: () => void
   onDecrement: () => void 
 }) {
+  if (isClosed) {
+    return (
+      <button 
+        disabled
+        className="bg-gray-100 text-gray-400 border border-gray-200 font-bold text-[13px] px-6 py-2 rounded-full tracking-wide whitespace-nowrap z-10 cursor-not-allowed"
+      >
+        CLOSED
+      </button>
+    )
+  }
+
   // If it's customizable, we always show the ADD/CUSTOMIZE button to open the modal
   if (isCustomizable) {
     return (

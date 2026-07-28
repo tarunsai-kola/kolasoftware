@@ -31,7 +31,7 @@ This is **one Next.js application** serving every restaurant on the platform.
 ### 2. Tenant Identification via Hostname (Middleware)
 Every incoming request hits `middleware.ts` first. The middleware:
 
-1. Reads `request.headers.get('host')` to extract the hostname (custom domain or `{slug}.yourplatform.com` subdomain).
+1. Reads `request.headers.get('host')` to extract the hostname (custom domain or `{slug}.kolasolution.com` subdomain).
 2. Looks up the matching `restaurant_id` from the database.
 3. Injects `restaurant_id` + theme data into request headers so layout/pages can consume them without additional DB hits.
 
@@ -73,7 +73,7 @@ Payments are processed via **Razorpay Route**.
 | Framework | Next.js 14 (App Router) |
 | Language | TypeScript (strict mode) |
 | Styling | Tailwind CSS |
-| Hosting | Vercel Pro (wildcard domain support for `*.yourplatform.com`) |
+| Hosting | Vercel Pro (wildcard domain support for `*.kolasolution.com`) |
 | Database | Supabase (PostgreSQL + RLS) |
 | Auth | Supabase Auth (staff/admin only — customers are phone-identified, no login) |
 | Realtime | Supabase Realtime (live order updates on kitchen dashboard) |

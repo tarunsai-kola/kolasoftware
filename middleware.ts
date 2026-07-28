@@ -16,6 +16,9 @@ interface RestaurantRow {
   primary_color: string
   font_family: string
   banner_image_url: string | null
+  whatsapp_number: string | null
+  is_accepting_orders: boolean
+  announcement_message: string | null
   status: 'active' | 'suspended' | 'pending_setup'
 }
 
@@ -26,6 +29,9 @@ interface RestaurantThemeHeader {
   primaryColor: string
   fontFamily: string
   bannerImageUrl: string | null
+  whatsappNumber: string | null
+  isAcceptingOrders: boolean
+  announcementMessage: string | null
 }
 
 // =============================================================================
@@ -88,7 +94,7 @@ function sanitiseHostname(raw: string): string {
 
 /**
  * Extract the leftmost label from a hostname for subdomain matching.
- * "spicehouse.yourplatform.com" → "spicehouse"
+ * "spicehouse.kolasolution.com" → "spicehouse"
  * "spicehouse.com"             → "spicehouse"  (used as fallback; won't match unless slug = "spicehouse")
  */
 function extractSubdomainSlug(hostname: string): string {
@@ -126,7 +132,7 @@ async function lookupRestaurant(
   // URLSearchParams.set() handles URL-encoding of the entire value.
   const params = new URLSearchParams({
     or: `(domain.eq.${hostname},subdomain.eq.${subdomainSlug})`,
-    select: 'id,name,logo_url,primary_color,font_family,banner_image_url,status',
+    select: 'id,name,logo_url,primary_color,font_family,banner_image_url,whatsapp_number,is_accepting_orders,announcement_message,status',
     limit: '1',
   })
 
@@ -151,6 +157,14 @@ async function lookupRestaurant(
 
   const rows: RestaurantRow[] = await res.json()
   const restaurant = rows[0] ?? null
+  
+  if (restaurant) {
+    console.log('[middleware] Fetched restaurant:', {
+      name: restaurant.name,
+      isAcceptingOrders: restaurant.is_accepting_orders,
+      announcementMessage: restaurant.announcement_message
+    })
+  }
 
   // Cache the result — including null ("not found") to avoid re-querying
   // for hostnames that have no restaurant row (e.g. bots, invalid domains)
@@ -167,7 +181,7 @@ export async function middleware(request: NextRequest) {
   const rawHostname = request.headers.get('host') ?? ''
   const hostname = sanitiseHostname(rawHostname)
   const pathname = request.nextUrl.pathname
-  const adminDomain = (process.env.PLATFORM_ADMIN_DOMAIN ?? '').toLowerCase()
+  const adminDomain = sanitiseHostname((process.env.PLATFORM_ADMIN_DOMAIN ?? '').toLowerCase())
 
   // ── Step 1: Supabase Auth session refresh ──────────────────────────────────
   // Required by @supabase/ssr on EVERY request. Keeps the JWT + cookie
@@ -266,6 +280,9 @@ export async function middleware(request: NextRequest) {
     primaryColor: restaurant.primary_color,
     fontFamily: restaurant.font_family,
     bannerImageUrl: restaurant.banner_image_url,
+    whatsappNumber: restaurant.whatsapp_number,
+    isAcceptingOrders: restaurant.is_accepting_orders ?? true,
+    announcementMessage: restaurant.announcement_message ?? null,
   }
 
   // Clone the incoming headers and add our custom headers

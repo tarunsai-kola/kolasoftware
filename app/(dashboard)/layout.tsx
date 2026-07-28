@@ -4,14 +4,13 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { createClient } from '@/lib/supabase/server'
+import DashboardNavigation from '@/components/dashboard/DashboardNavigation'
 
 interface DashboardLayoutProps {
   children: ReactNode
 }
 
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
-  const headersList = await headers()
-  const pathname = headersList.get('x-pathname') || ''
 
   // Ensure this is accessed via a restaurant context
   const { restaurantId, theme } = await getRestaurantContext()
@@ -88,6 +87,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       { label: 'Orders', href: '/orders' },
       { label: 'Delivery Map', href: '/delivery' },
       { label: 'Menu', href: '/menu' },
+      { label: 'Coupons', href: '/coupons' },
       { label: 'Riders', href: '/riders' },
       { label: 'History', href: '/history' },
       { label: 'Settings', href: '/settings' },
@@ -97,6 +97,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     navItems = [
       { label: 'Orders', href: '/orders' },
       { label: 'Menu', href: '/menu' },
+      { label: 'Coupons', href: '/coupons' },
       { label: 'History', href: '/history' },
       { label: 'Settings', href: '/settings' },
     ]
@@ -106,67 +107,12 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   return (
     <div className="flex h-screen flex-col md:flex-row bg-[#f5f5f7] overflow-hidden">
       
-      {/* ── Mobile Header (Visible only on small screens) ────────────────── */}
-      <header className="md:hidden flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4">
-        <div className="flex items-center gap-2">
-          {theme.logoUrl && (
-            <img src={theme.logoUrl} alt="Logo" className="h-8 w-8 rounded-full object-cover" />
-          )}
-          <span className="font-bold text-gray-900">{theme.name} Dashboard</span>
-        </div>
-        {/* Simple hamburger placeholder for MVP */}
-        <button className="p-2 text-gray-500">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
-      </header>
-
-      {/* ── Sidebar (Hidden on mobile by default in this MVP) ────────────── */}
-      <aside className="hidden md:flex w-52 flex-col border-r border-gray-200 bg-white h-screen sticky top-0 shrink-0">
-        <div className="flex h-14 items-center gap-2.5 border-b border-gray-100 px-4">
-          {theme.logoUrl && (
-            <img src={theme.logoUrl} alt="Logo" className="h-7 w-7 rounded-full object-cover" />
-          )}
-          <span className="font-bold text-gray-900 text-sm truncate">{theme.name}</span>
-        </div>
-
-        <nav className="flex-1 space-y-0.5 p-3">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/orders' && pathname.startsWith(item.href))
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'text-white'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                style={isActive ? { backgroundColor: theme.primaryColor || '#D85A30' } : {}}
-              >
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="border-t border-gray-100 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold text-gray-800 truncate">{userLabel}</span>
-              <span className="text-[11px] text-gray-400 capitalize">{role}</span>
-            </div>
-            <form action="/auth/signout" method="post">
-              <button 
-                type="submit" 
-                className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                title="Sign out"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-              </button>
-            </form>
-          </div>
-        </div>
-      </aside>
+      <DashboardNavigation 
+        navItems={navItems} 
+        theme={theme} 
+        userLabel={userLabel || ''} 
+        role={role} 
+      />
 
       {/* ── Main Content Area ──────────────────────────────────────────────── */}
       <main className="flex flex-col flex-1 overflow-hidden">

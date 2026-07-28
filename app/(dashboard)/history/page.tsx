@@ -10,11 +10,20 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
-export default async function HistoryPage() {
+export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined } }) {
   const { restaurantId } = await getRestaurantContext()
   const supabase = await createClient()
 
-  const { data: orders, error } = await supabase
+  const resolvedSearchParams = await Promise.resolve(searchParams)
+  const pageParam = resolvedSearchParams?.page
+  const page = typeof pageParam === 'string' ? parseInt(pageParam, 10) : 1
+  const currentPage = isNaN(page) || page < 1 ? 1 : page
+  const PAGE_SIZE = 30
+  
+  const from = (currentPage - 1) * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+
+  const { data: orders, count, error } = await supabase
     .from('orders')
     .select(`
       id,
@@ -25,10 +34,10 @@ export default async function HistoryPage() {
       items,
       delivery_address,
       customer:customers ( name, phone )
-    `)
+    `, { count: 'exact' })
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(from, to)
 
   if (error) {
     console.error('Failed to fetch order history:', error)
@@ -43,5 +52,15 @@ export default async function HistoryPage() {
     }
   })
 
-  return <HistoryClient orders={formattedOrders} />
+  const totalOrders = count || 0
+  const totalPages = Math.ceil(totalOrders / PAGE_SIZE)
+
+  return (
+    <HistoryClient 
+      orders={formattedOrders} 
+      currentPage={currentPage} 
+      totalPages={totalPages} 
+      totalOrders={totalOrders} 
+    />
+  )
 }

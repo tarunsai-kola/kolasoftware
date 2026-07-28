@@ -20,6 +20,18 @@ interface Restaurant {
   kitchen_email: string
   status: string
   subscription_status: string
+  address: string | null
+  lat: number | null
+  lng: number | null
+  delivery_radius_km: number | null
+  is_cod_enabled?: boolean
+  is_online_payment_enabled?: boolean
+  razorpay_key_id?: string | null
+  razorpay_key_secret?: string | null
+  razorpay_webhook_secret?: string | null
+  whatsapp_number?: string | null
+  is_accepting_orders?: boolean
+  announcement_message?: string | null
 }
 
 const FONT_OPTIONS = [
@@ -63,6 +75,43 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
   const [fontFamily, setFontFamily] = useState(restaurant.font_family)
   const [logoUrl, setLogoUrl] = useState(restaurant.logo_url ?? '')
   const [bannerUrl, setBannerUrl] = useState(restaurant.banner_image_url ?? '')
+  
+  const [address, setAddress] = useState(restaurant.address ?? '')
+  const [lat, setLat] = useState(restaurant.lat?.toString() ?? '')
+  const [lng, setLng] = useState(restaurant.lng?.toString() ?? '')
+  const [deliveryRadius, setDeliveryRadius] = useState(restaurant.delivery_radius_km?.toString() ?? '')
+
+  // Payment settings state
+  const [isCodEnabled, setIsCodEnabled] = useState(restaurant.is_cod_enabled ?? true)
+  const [isOnlinePaymentEnabled, setIsOnlinePaymentEnabled] = useState(restaurant.is_online_payment_enabled ?? false)
+  const [razorpayKeyId, setRazorpayKeyId] = useState(restaurant.razorpay_key_id ?? '')
+  const [razorpayKeySecret, setRazorpayKeySecret] = useState(restaurant.razorpay_key_secret ?? '')
+  const [razorpayWebhookSecret, setRazorpayWebhookSecret] = useState(restaurant.razorpay_webhook_secret ?? '')
+
+  // Contact settings state
+  const [whatsappNumber, setWhatsappNumber] = useState(restaurant.whatsapp_number ?? '')
+
+  // Storefront Status state
+  const [isAcceptingOrders, setIsAcceptingOrders] = useState(restaurant.is_accepting_orders ?? true)
+  const [announcementMessage, setAnnouncementMessage] = useState(restaurant.announcement_message ?? '')
+
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLat(position.coords.latitude.toFixed(6))
+          setLng(position.coords.longitude.toFixed(6))
+          toast.success("Location updated! Don't forget to save.")
+        },
+        (error) => {
+          console.error(error)
+          toast.error('Could not get location. Check browser permissions.')
+        }
+      )
+    } else {
+      toast.error('Geolocation is not supported by this browser.')
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -233,6 +282,194 @@ export default function SettingsClient({ restaurant }: { restaurant: Restaurant 
                 </div>
               )}
             </Field>
+          </Section>
+
+          {/* ── Location & Delivery Zone ─────────────────────────────────── */}
+          <Section title="Location & Delivery Zone" description="Set your exact location and delivery radius.">
+            <div className="flex justify-end -mt-10 mb-2 relative z-10 mr-4">
+              <button
+                type="button"
+                onClick={handleGetLocation}
+                className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-none"
+              >
+                📍 Use Current Location
+              </button>
+            </div>
+            
+            <Field label="Address" htmlFor="address" hint="Physical address of the restaurant.">
+              <input
+                id="address"
+                name="address"
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 Main St, City"
+                className={inputCls}
+              />
+            </Field>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Latitude" htmlFor="lat" hint="e.g. 28.7041">
+                <input
+                  id="lat"
+                  name="lat"
+                  type="number"
+                  step="any"
+                  value={lat}
+                  onChange={(e) => setLat(e.target.value)}
+                  placeholder="0.0000"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Longitude" htmlFor="lng" hint="e.g. 77.1025">
+                <input
+                  id="lng"
+                  name="lng"
+                  type="number"
+                  step="any"
+                  value={lng}
+                  onChange={(e) => setLng(e.target.value)}
+                  placeholder="0.0000"
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+
+            <Field label="Delivery Radius (km)" htmlFor="delivery_radius_km" hint="Maximum distance you deliver to. Orders outside this radius will be rejected.">
+              <input
+                id="delivery_radius_km"
+                name="delivery_radius_km"
+                type="number"
+                step="any"
+                min="0"
+                value={deliveryRadius}
+                onChange={(e) => setDeliveryRadius(e.target.value)}
+                placeholder="5"
+                className={inputCls}
+              />
+            </Field>
+          </Section>
+
+          {/* ── Contact & Support ────────────────────────────────────────── */}
+          <Section title="Contact & Support" description="Let customers reach out to you via WhatsApp.">
+            <Field label="WhatsApp Support Number" htmlFor="whatsapp_number" hint="Include country code (e.g. 919876543210). Leave blank to disable WhatsApp floating button.">
+              <input
+                id="whatsapp_number"
+                name="whatsapp_number"
+                type="text"
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                placeholder="919876543210"
+                className={inputCls}
+              />
+            </Field>
+          </Section>
+
+          {/* ── Storefront Status ────────────────────────────────────────── */}
+          <Section title="Storefront Status" description="Control if your restaurant is open for orders and display announcements.">
+            <input type="hidden" name="is_accepting_orders" value={isAcceptingOrders ? 'true' : 'false'} />
+
+            <div className="space-y-4">
+              <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                <div>
+                  <span className="block text-sm font-semibold text-gray-900">Accepting Orders</span>
+                  <span className="block text-xs text-gray-500 mt-1">If disabled, your storefront will show as "Closed" and customers cannot place orders.</span>
+                </div>
+                <div className="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2" style={{ backgroundColor: isAcceptingOrders ? 'var(--restaurant-primary, #111827)' : '#E5E7EB' }}>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={isAcceptingOrders}
+                    onChange={(e) => setIsAcceptingOrders(e.target.checked)}
+                  />
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isAcceptingOrders ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+              </label>
+
+              <Field label="Announcement Message (Marquee)" htmlFor="announcement_message" hint="This message will scroll horizontally across your storefront. Leave blank to hide.">
+                <input
+                  id="announcement_message"
+                  name="announcement_message"
+                  type="text"
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  placeholder="e.g. We are closed today due to heavy rain. See you tomorrow!"
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+          </Section>
+
+          {/* ── Payment Settings ─────────────────────────────────────────── */}
+          <Section title="Payment Settings" description="Configure how customers can pay for their orders.">
+            {/* Hidden inputs to ensure booleans are sent properly if using controlled state */}
+            <input type="hidden" name="is_cod_enabled" value={isCodEnabled ? 'true' : 'false'} />
+            <input type="hidden" name="is_online_payment_enabled" value={isOnlinePaymentEnabled ? 'true' : 'false'} />
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isCodEnabled}
+                  onChange={(e) => setIsCodEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm font-medium text-gray-900">Enable Cash on Delivery</span>
+              </label>
+
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isOnlinePaymentEnabled}
+                  onChange={(e) => setIsOnlinePaymentEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm font-medium text-gray-900">Enable Online Payment (Razorpay)</span>
+              </label>
+            </div>
+
+            {isOnlinePaymentEnabled && (
+              <div className="mt-6 space-y-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                <Field label="Razorpay Key ID" htmlFor="razorpay_key_id" required>
+                  <input
+                    id="razorpay_key_id"
+                    name="razorpay_key_id"
+                    type="text"
+                    value={razorpayKeyId}
+                    onChange={(e) => setRazorpayKeyId(e.target.value)}
+                    required={isOnlinePaymentEnabled}
+                    placeholder="rzp_live_xxxxxxxxxxx"
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field label="Razorpay Key Secret" htmlFor="razorpay_key_secret" required hint="Stored securely and never exposed to the frontend.">
+                  <input
+                    id="razorpay_key_secret"
+                    name="razorpay_key_secret"
+                    type="password"
+                    value={razorpayKeySecret}
+                    onChange={(e) => setRazorpayKeySecret(e.target.value)}
+                    required={isOnlinePaymentEnabled}
+                    placeholder="••••••••••••••••"
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field label="Razorpay Webhook Secret" htmlFor="razorpay_webhook_secret" required hint="Used to securely verify payment events.">
+                  <input
+                    id="razorpay_webhook_secret"
+                    name="razorpay_webhook_secret"
+                    type="password"
+                    value={razorpayWebhookSecret}
+                    onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
+                    required={isOnlinePaymentEnabled}
+                    placeholder="••••••••••••••••"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            )}
           </Section>
 
           {/* ── Save Button ──────────────────────────────────────────────── */}

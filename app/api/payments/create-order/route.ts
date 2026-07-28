@@ -4,15 +4,6 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
 // =============================================================================
-// Razorpay client (server-side only — key_secret never leaves the server)
-// =============================================================================
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-})
-
-// =============================================================================
 // Platform fee config
 // =============================================================================
 //
@@ -44,25 +35,6 @@ const bodySchema = z.object({
 // Route handler: POST /api/payments/create-order
 // =============================================================================
 
-/**
- * Creates a Razorpay order for an existing platform order.
- *
- * Flow:
- *   1. Validate the incoming order_id
- *   2. Fetch the order + restaurant from Supabase (service role, bypasses RLS)
- *   3. Guard against duplicate or invalid payment attempts
- *   4. Create a Razorpay order; if the restaurant has a linked Razorpay account,
- *      include a Route `transfers` array to auto-split on capture
- *   5. Persist the razorpay_order_id on the order row
- *   6. Return { razorpay_order_id, amount, currency, key_id } to the frontend
- *
- * Security:
- *   - Uses service role to read data (not exposed to the browser)
- *   - RAZORPAY_KEY_SECRET never leaves the server
- *   - Only the public RAZORPAY_KEY_ID is returned to the client
- *   - payment_status guard prevents double-payment
- *   - Rate limited to 5 reqs/min per IP
- */
 export async function POST(req: NextRequest) {
   try {
     // ── 0. Rate Limiting ───────────────────────────────────────────────────────
@@ -121,7 +93,9 @@ export async function POST(req: NextRequest) {
         restaurant:restaurants (
           id,
           name,
-          razorpay_account_id
+          is_online_payment_enabled,
+          razorpay_key_id,
+          razorpay_key_secret
         )
       `,
       )
@@ -138,6 +112,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Order already paid' }, { status: 409 })
     }
 
+    const restaurant = Array.isArray(order.restaurant)
+      ? order.restaurant[0]
+      : order.restaurant
+
+    if (!restaurant?.is_online_payment_enabled || !restaurant?.razorpay_key_id || !restaurant?.razorpay_key_secret) {
+      return NextResponse.json({ error: 'Online payments are not configured for this restaurant.' }, { status: 400 })
+    }
+
     // If a Razorpay order was already created (e.g. user refreshed the page),
     // return the existing one instead of creating a duplicate.
     if (order.razorpay_order_id) {
@@ -145,18 +127,12 @@ export async function POST(req: NextRequest) {
         razorpay_order_id: order.razorpay_order_id,
         amount: Math.round(Number(order.total_amount) * 100),
         currency: 'INR',
-        key_id: process.env.RAZORPAY_KEY_ID,
+        key_id: restaurant.razorpay_key_id,
       })
     }
 
     // ── 4. Build Razorpay order options ───────────────────────────────────────
     const totalPaise = Math.round(Number(order.total_amount) * 100)
-    const restaurantPaise = Math.max(0, totalPaise - PLATFORM_FEE_PAISE)
-
-    // Supabase returns related rows as an array when using FK joins
-    const restaurant = Array.isArray(order.restaurant)
-      ? order.restaurant[0]
-      : order.restaurant
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const razorpayOptions: any = {
@@ -170,39 +146,23 @@ export async function POST(req: NextRequest) {
       },
     }
 
-    // Add Route transfer only if the restaurant has a linked Razorpay account
-    // AND the restaurant amount is positive after the platform fee.
-    if (restaurant?.razorpay_account_id && restaurantPaise > 0) {
-      razorpayOptions.transfers = [
-        {
-          account: restaurant.razorpay_account_id,
-          amount: restaurantPaise,
-          currency: 'INR',
-          notes: {
-            platform_order_id: order_id,
-          },
-          // Expose this note key in the restaurant's Razorpay dashboard
-          linked_account_notes: ['platform_order_id'],
-          on_hold: false,
-        },
-      ]
-    }
-
     // ── 5. Create Razorpay order ──────────────────────────────────────────────
+    const razorpay = new Razorpay({
+      key_id: restaurant.razorpay_key_id,
+      key_secret: restaurant.razorpay_key_secret,
+    })
+
     // Razorpay's TS types are slightly broken here, so we cast to any.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const razorpayOrder = (await razorpay.orders.create(razorpayOptions)) as any
 
     // ── 6. Persist razorpay_order_id on our order row ─────────────────────────
-    // This is critical for the webhook to match events back to orders.
     const { error: updateError } = await supabase
       .from('orders')
       .update({ razorpay_order_id: razorpayOrder.id })
       .eq('id', order_id)
 
     if (updateError) {
-      // Non-fatal: the Razorpay order exists but our DB didn't update.
-      // The webhook will still receive payment events; log and continue.
       console.error('[create-order] failed to persist razorpay_order_id:', updateError.message)
     }
 
@@ -211,7 +171,7 @@ export async function POST(req: NextRequest) {
       razorpay_order_id: razorpayOrder.id,
       amount: razorpayOrder.amount,       // in paise
       currency: razorpayOrder.currency,
-      key_id: process.env.RAZORPAY_KEY_ID, // publishable — safe to send to browser
+      key_id: restaurant.razorpay_key_id, // publishable — safe to send to browser
     })
   } catch (err) {
     console.error('[create-order] unexpected error:', err)

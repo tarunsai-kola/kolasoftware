@@ -22,8 +22,20 @@ export async function generateMetadata(): Promise<Metadata> {
  * Passes no cart data — CheckoutForm reads it from CartContext directly,
  * which persists across client-side navigation from the menu page.
  */
+import { createServiceRoleClient } from '@/lib/supabase/server'
+
 export default async function CheckoutPage() {
-  const { theme } = await getRestaurantContext()
+  const { restaurantId, theme } = await getRestaurantContext()
+  const supabase = await createServiceRoleClient()
+
+  const { data: restData } = await supabase
+    .from('restaurants_public')
+    .select('is_cod_enabled, is_online_payment_enabled')
+    .eq('id', restaurantId)
+    .single()
+
+  const isCodEnabled = restData?.is_cod_enabled ?? true
+  const isOnlinePaymentEnabled = restData?.is_online_payment_enabled ?? false
 
   return (
     <div className="min-h-screen bg-gray-50 font-brand pb-32 lg:pb-0">
@@ -80,7 +92,10 @@ export default async function CheckoutPage() {
       </div>
 
       {/* ── Form — client component that reads cart from CartContext ─────────── */}
-      <CheckoutForm />
+      <CheckoutForm 
+        isCodEnabled={isCodEnabled} 
+        isOnlinePaymentEnabled={isOnlinePaymentEnabled} 
+      />
     </div>
   )
 }

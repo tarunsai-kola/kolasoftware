@@ -16,6 +16,8 @@ export type CheckoutInput = {
   address?: string | null
   lat?: number | null
   lng?: number | null
+  couponCode?: string | null
+  paymentMethod: 'cod' | 'online'
 }
 
 export type OrderResult =
@@ -33,6 +35,68 @@ type OrderItemSnapshot = {
 // =============================================================================
 // Server Action
 // =============================================================================
+
+export async function validateCoupon(code: string, cartTotal: number, phone: string | null) {
+  try {
+    const { restaurantId } = await getRestaurantContext()
+    const supabase = await createServiceRoleClient()
+
+    const { data: coupon, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('code', code.toUpperCase())
+      .single()
+
+    if (error || !coupon) {
+      return { success: false, error: 'Invalid coupon code.' }
+    }
+
+    if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+      return { success: false, error: 'This coupon has expired.' }
+    }
+
+    if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+      return { success: false, error: 'This coupon has reached its overall usage limit.' }
+    }
+
+    if (cartTotal < coupon.min_order_amount) {
+      return { success: false, error: `Minimum order amount of ₹${coupon.min_order_amount} required.` }
+    }
+
+    if (!coupon.multiple_uses_per_customer && phone) {
+      const normalizedPhone = phone.replace(/^\+91[\-\s]?/, '').replace(/[\s\-]/g, '').trim()
+      const { data: customer } = await supabase.from('customers').select('id').eq('phone', normalizedPhone).single()
+      
+      if (customer) {
+        const { count } = await supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_id', customer.id)
+          .eq('coupon_code', coupon.code)
+          .neq('status', 'cancelled')
+
+        if (count && count > 0) {
+          return { success: false, error: 'You have already used this coupon.' }
+        }
+      }
+    }
+
+    let discountAmount = 0
+    if (coupon.discount_type === 'percentage') {
+      discountAmount = cartTotal * (coupon.discount_value / 100)
+    } else {
+      discountAmount = coupon.discount_value
+    }
+    
+    // discount amount cannot exceed cart total
+    discountAmount = Math.min(discountAmount, cartTotal)
+
+    return { success: true, discountAmount, code: coupon.code }
+  } catch (err) {
+    return { success: false, error: 'Failed to validate coupon.' }
+  }
+}
 
 /**
  * createOrder — upsert customer + create order + create order_items.
@@ -58,7 +122,40 @@ export async function createOrder(
     // Read tenant context from middleware-injected headers (not from client)
     const { restaurantId } = await getRestaurantContext()
 
+// Helper to calculate distance
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
     const supabase = await createServiceRoleClient()
+
+    // ── Pre-check: Verify delivery radius ──────────────────────────────────
+    if (input.deliveryType === 'delivery') {
+      const { data: restData } = await supabase
+        .from('restaurants')
+        .select('lat, lng, delivery_radius_km')
+        .eq('id', restaurantId)
+        .single()
+        
+      if (restData?.lat && restData?.lng && restData?.delivery_radius_km) {
+        if (!input.lat || !input.lng) {
+           return { success: false, error: 'Please provide a valid delivery address with location coordinates.' }
+        }
+        
+        const distance = getDistanceFromLatLonInKm(input.lat, input.lng, restData.lat, restData.lng)
+        if (distance > restData.delivery_radius_km) {
+           return { success: false, error: `Your location is outside our delivery area (Max distance: ${restData.delivery_radius_km}km).` }
+        }
+      }
+    }
 
     // ── Normalize inputs ───────────────────────────────────────────────────
     // Phone: strip +91 prefix and any spaces/hyphens → 10-digit string
@@ -107,6 +204,19 @@ export async function createOrder(
       0,
     )
 
+    let discountAmount = 0
+    let finalCouponCode = null
+
+    // ── Step 2.5: Apply Coupon ─────────────────────────────────────────────
+    if (input.couponCode) {
+      const valResult = await validateCoupon(input.couponCode, totalAmount, phone)
+      if (!valResult.success) {
+        return { success: false, error: valResult.error }
+      }
+      discountAmount = valResult.discountAmount ?? 0
+      finalCouponCode = valResult.code
+    }
+
     // ── Step 3: Create the order row ───────────────────────────────────────
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -114,15 +224,18 @@ export async function createOrder(
         restaurant_id: restaurantId,
         customer_id: customer.id,
         items: itemsSnapshot,          // JSONB snapshot
-        total_amount: totalAmount,
+        total_amount: totalAmount - discountAmount, // Store the discounted total
         status: 'new',
-        payment_status: 'pending',
+        payment_status: input.paymentMethod === 'cod' ? 'pending' : 'pending', // could leave it as pending in both cases
+        payment_method: input.paymentMethod,
         delivery_type: input.deliveryType,
         delivery_address:
           input.deliveryType === 'delivery' ? (input.address?.trim() ?? null) : null,
         delivery_lat: input.deliveryType === 'delivery' ? (input.lat ?? null) : null,
         delivery_lng: input.deliveryType === 'delivery' ? (input.lng ?? null) : null,
         customer_email: email,
+        coupon_code: finalCouponCode,
+        discount_amount: discountAmount
       })
       .select('id')
       .single()
@@ -132,6 +245,31 @@ export async function createOrder(
       return {
         success: false,
         error: 'Failed to place your order. Please try again.',
+      }
+    }
+
+    // ── Step 3.2: Increment coupon usage ───────────────────────────────────
+    if (finalCouponCode) {
+      await supabase.rpc('increment_coupon_usage', { 
+        p_restaurant_id: restaurantId, 
+        p_code: finalCouponCode 
+      })
+      // Alternatively, we can just use an update query if RPC doesn't exist
+      // Since we don't have an RPC, let's just do a direct update:
+      // Actually, standard supabase SQL update works:
+      const { data: cpn } = await supabase
+        .from('coupons')
+        .select('usage_count')
+        .eq('restaurant_id', restaurantId)
+        .eq('code', finalCouponCode)
+        .single()
+      
+      if (cpn) {
+        await supabase
+          .from('coupons')
+          .update({ usage_count: cpn.usage_count + 1 })
+          .eq('restaurant_id', restaurantId)
+          .eq('code', finalCouponCode)
       }
     }
 

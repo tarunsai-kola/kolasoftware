@@ -5,6 +5,8 @@ import { ThemeProvider } from '@/components/shared/ThemeProvider'
 import { CartProvider } from '@/components/storefront/CartContext'
 import { CustomerProvider } from '@/components/storefront/CustomerContext'
 
+import WhatsAppButton from '@/components/storefront/WhatsAppButton'
+
 /**
  * Storefront layout — wraps all customer-facing pages:
  *   /           (menu + cart drawer)
@@ -28,6 +30,12 @@ export default async function StorefrontLayout({
       <CustomerProvider>
         <CartProvider>
           {children}
+
+        {/* Floating WhatsApp Button */}
+        <WhatsAppButton 
+          whatsappNumber={theme.whatsappNumber} 
+          restaurantName={theme.name} 
+        />
 
         {/*
           Toaster — uses CSS variables so font and color match the restaurant.

@@ -100,7 +100,7 @@ export default function BillingList({ initialRestaurants }: { initialRestaurants
                           </span>
                         )}
                       </span>
-                      <span className="text-xs text-gray-500">{restaurant.domain || `${restaurant.subdomain}.yourplatform.com`}</span>
+                      <span className="text-xs text-gray-500">{restaurant.domain || `${restaurant.subdomain}.kolasolution.com`}</span>
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">

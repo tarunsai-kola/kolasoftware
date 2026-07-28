@@ -92,7 +92,7 @@ export default function RestaurantList({ initialRestaurants }: { initialRestaura
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-gray-900">{restaurant.domain}</span>
-                    <span className="text-xs text-gray-500">{restaurant.subdomain}.yourplatform.com</span>
+                    <span className="text-xs text-gray-500">{restaurant.subdomain}.kolasolution.com</span>
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">

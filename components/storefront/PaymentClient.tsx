@@ -31,7 +31,9 @@ interface RazorpayOptions {
   }
   notes?: Record<string, string>
   theme?: { color?: string }
-  handler: (response: RazorpayResponse) => void
+  callback_url?: string
+  redirect?: boolean
+  handler?: (response: RazorpayResponse) => void
   modal?: {
     ondismiss?: () => void
     confirm_close?: boolean
@@ -177,20 +179,10 @@ export default function PaymentClient({
         theme: {
           color: primaryColor,
         },
-
-        // ── Payment success ────────────────────────────────────────────────
-        // Razorpay calls this handler only after it verifies the payment on
-        // its servers. We can safely redirect the customer to the confirmation
-        // page. The webhook will also fire and update payment_status in the DB.
-        handler: () => {
-          toast.success('Payment successful! Confirming your order…', {
-            duration: 3000,
-          })
-          // Short delay so the toast is visible before navigation
-          setTimeout(() => {
-            router.push(`/order-confirmed/${orderId}`)
-          }, 800)
-        },
+        
+        // ── Redirect flow (Best for Mobile / UPI Intent) ─────────────
+        callback_url: `/api/payments/callback`,
+        redirect: true,
 
         modal: {
           // Warn user before closing mid-payment

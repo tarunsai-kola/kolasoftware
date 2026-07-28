@@ -176,6 +176,23 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
+          ANNOUNCEMENT MARQUEE
+      ════════════════════════════════════════════════════════════════════════ */}
+      {theme.announcementMessage && (
+        <div className="overflow-hidden whitespace-nowrap bg-gray-900 px-4 py-2 text-sm font-medium text-white">
+          <div className="inline-block animate-marquee">
+            {theme.announcementMessage}
+            <span className="mx-8 opacity-50">•</span>
+            {theme.announcementMessage}
+            <span className="mx-8 opacity-50">•</span>
+            {theme.announcementMessage}
+            <span className="mx-8 opacity-50">•</span>
+            {theme.announcementMessage}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
           STICKY HEADER (appears after scroll past hero)
       ════════════════════════════════════════════════════════════════════════ */}
       <header
@@ -199,7 +216,14 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
               {theme.name ? theme.name[0].toUpperCase() : '?'}
             </span>
           )}
-          <span className="truncate text-sm font-bold text-gray-900">{theme.name}</span>
+          <div className="flex flex-col">
+            <span className="truncate text-sm font-bold text-gray-900">{theme.name}</span>
+            {!theme.isAcceptingOrders && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">
+                Closed
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -292,7 +316,9 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
                       item={item}
                       quantity={cart[item.id]?.quantity ?? 0} // Temporarily fallback to item.id for simple items. Actually we should use getItemQuantity(item.id)
                       totalQuantity={getItemQuantity(item.id)}
+                      isClosed={!theme.isAcceptingOrders}
                       onAdd={() => {
+                        if (!theme.isAcceptingOrders) return
                         const isCustomizable = (item.variant_groups && item.variant_groups.length > 0) || (item.addon_groups && item.addon_groups.length > 0)
                         if (isCustomizable) {
                           setCustomizingItem(item)
