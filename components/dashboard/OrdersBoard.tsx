@@ -105,35 +105,42 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
   }, [])
 
   // ── Alert Loop (Sound & Title Flash) ──────────────────────────────────────
+  const hasUnacknowledged = unacknowledgedIds.size > 0;
+
   useEffect(() => {
-    if (unacknowledgedIds.size === 0) return
+    if (!hasUnacknowledged) return
 
     const audio = new Audio('/sounds/new-order.mp3')
+    audio.loop = true; // Loop the audio continuously until acknowledged
 
     if (audioEnabled) {
-      audio.play().catch(console.warn)
-    }
-
-    const soundInterval = setInterval(() => {
-      if (audioEnabled) {
-        audio.currentTime = 0
-        audio.play().catch(console.warn)
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn("Autoplay prevented:", error);
+          if (error.name === 'NotAllowedError') {
+            setAudioEnabled(false);
+            setDismissedBanner(false);
+            localStorage.setItem('kola_audio_pref', 'false');
+          }
+        });
       }
-    }, 4000)
+    }
 
     const originalTitle = document.title
     let isFlash = false
     const titleInterval = setInterval(() => {
       isFlash = !isFlash
-      document.title = isFlash ? '(1) New Order! 🚨' : originalTitle
+      document.title = isFlash ? `(${unacknowledgedIds.size}) New Order! 🚨` : originalTitle
     }, 1000)
 
     return () => {
-      clearInterval(soundInterval)
+      audio.pause()
+      audio.currentTime = 0
       clearInterval(titleInterval)
       document.title = originalTitle
     }
-  }, [unacknowledgedIds.size, audioEnabled])
+  }, [hasUnacknowledged, unacknowledgedIds.size, audioEnabled])
 
   // ── Real-time Subscription ────────────────────────────────────────────────
   useEffect(() => {
@@ -162,6 +169,13 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
               setOrders((prev) => [newOrder, ...prev])
               if (newOrder.status === 'new' && !newOrder.acknowledged_at) {
                 setUnacknowledgedIds((prev) => new Set(prev).add(newOrder.id))
+                
+                // Show browser notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('New Order Received! 🚨', {
+                    body: `${newOrder.customer_name} ordered for ₹${newOrder.total_amount}. Please acknowledge.`,
+                  })
+                }
               }
               toast('New order received!', { icon: '🔔' })
             }
@@ -221,6 +235,12 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
     setAudioEnabled(true)
     setDismissedBanner(true)
     localStorage.setItem('kola_audio_pref', 'true')
+    
+    // Request browser notification permission
+    if ('Notification' in window) {
+      Notification.requestPermission()
+    }
+
     const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA')
     silent.play().catch(console.warn)
   }
@@ -247,7 +267,7 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
           {!audioEnabled && !dismissedBanner && (
             <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 pl-3 pr-1 py-1 text-xs text-amber-800">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-              <span className="font-medium">Enable sound alerts</span>
+              <span className="font-medium">Enable sound & notifications</span>
               <button
                 onClick={handleEnableAudio}
                 className="ml-1 rounded-full bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
@@ -266,6 +286,34 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
               </button>
             </div>
           )}
+
+          {/* Test Sound Button */}
+          <button
+            onClick={() => {
+              const testAudio = new Audio('/sounds/new-order.mp3')
+              testAudio.play().catch(console.warn)
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+            title="Play sample order sound"
+          >
+            🎵 Test Sound
+          </button>
+
+          {/* Persistent Audio Toggle */}
+          <button
+            onClick={() => {
+              if (audioEnabled) {
+                setAudioEnabled(false)
+                localStorage.setItem('kola_audio_pref', 'false')
+              } else {
+                handleEnableAudio()
+              }
+            }}
+            className={`flex items-center justify-center h-8 w-8 rounded-full border ${audioEnabled ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100' : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100'} transition-colors`}
+            title={audioEnabled ? 'Disable Sound' : 'Enable Sound'}
+          >
+            {audioEnabled ? '🔊' : '🔇'}
+          </button>
 
           {/* Live indicator */}
           <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
