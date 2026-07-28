@@ -181,7 +181,7 @@ export async function middleware(request: NextRequest) {
   const rawHostname = request.headers.get('host') ?? ''
   const hostname = sanitiseHostname(rawHostname)
   const pathname = request.nextUrl.pathname
-  const adminDomain = sanitiseHostname((process.env.PLATFORM_ADMIN_DOMAIN ?? '').toLowerCase())
+  const adminDomain = sanitiseHostname((process.env.PLATFORM_ADMIN_DOMAIN || 'kolasolution.com').toLowerCase())
 
   // ── Step 1: Supabase Auth session refresh ──────────────────────────────────
   // Required by @supabase/ssr on EVERY request. Keeps the JWT + cookie
