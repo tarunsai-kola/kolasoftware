@@ -226,7 +226,7 @@ export async function middleware(request: NextRequest) {
   // ── Step 2: Super-admin domain routing ────────────────────────────────────
   // Requests to PLATFORM_ADMIN_DOMAIN are served by the /(super-admin) layout.
   // Bypasses all tenant lookup. Redirects to /admin/login if not authenticated.
-  if (hostname === adminDomain) {
+  if (hostname === adminDomain || hostname === `www.${adminDomain}`) {
     // 1. Rewrite root to the public landing page route
     if (pathname === '/') {
       return NextResponse.rewrite(new URL('/landing', request.url))
