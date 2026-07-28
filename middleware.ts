@@ -227,11 +227,18 @@ export async function middleware(request: NextRequest) {
   // Requests to PLATFORM_ADMIN_DOMAIN are served by the /(super-admin) layout.
   // Bypasses all tenant lookup. Redirects to /admin/login if not authenticated.
   if (hostname === adminDomain) {
-    if (!user && !pathname.startsWith('/admin/login')) {
+    // 1. Rewrite root to the public landing page route
+    if (pathname === '/') {
+      return NextResponse.rewrite(new URL('/landing', request.url))
+    }
+
+    // 2. Auth protection for all other admin routes (except login and the rewritten landing page)
+    if (!user && !pathname.startsWith('/admin/login') && !pathname.startsWith('/landing')) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/admin/login'
       return NextResponse.redirect(loginUrl)
     }
+
     // Pass through with auth cookies; no tenant headers injected
     return supabaseResponse
   }
