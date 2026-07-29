@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import toast from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 import { getErrorMessage } from '@/lib/utils/error'
 
 export default function LoginPage() {
@@ -35,6 +35,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Toaster position="top-center" />
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-10 shadow-sm border border-gray-100">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-gray-900">

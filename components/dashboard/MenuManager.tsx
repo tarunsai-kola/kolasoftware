@@ -142,6 +142,25 @@ export default function MenuManager({ initialItems, categories: initialCategorie
     setIsBuilderOpen(true)
   }
 
+  const handleCategoryReorder = async (newOrder: string[]) => {
+    setCategories(newOrder) // Optimistic update
+    
+    try {
+      const res = await fetch('/api/admin/categories/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          category_order: newOrder
+        })
+      })
+      if (!res.ok) throw new Error('Failed to update category order')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to save category order')
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   
   // If the builder is open, render it full screen over the dashboard
@@ -304,6 +323,7 @@ export default function MenuManager({ initialItems, categories: initialCategorie
             categories={categories}
             theme={theme}
             onEdit={handleEditItem}
+            onCategoryReorder={handleCategoryReorder}
           />
         )}
       </div>

@@ -217,18 +217,68 @@ export default function OrdersBoard({ initialOrders, riders, restaurantId, theme
 
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
     setUnacknowledgedIds((prev) => { const next = new Set(prev); next.delete(orderId); return next })
+    
+    // Automatically assign rider when accepting a delivery order
+    const order = orders.find(o => o.id === orderId)
+    if (order?.status === 'new' && nextStatus === 'preparing' && order.delivery_type === 'delivery') {
+      // Don't await, let it run in parallel
+      assignRider(orderId, 'AUTO')
+    }
+
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus, acknowledged_at: o.acknowledged_at || new Date().toISOString() } : o)))
     const { error } = await supabase.from('orders').update({ status: nextStatus, acknowledged_at: new Date().toISOString() }).eq('id', orderId)
     if (error) { toast.error('Failed to update status'); window.location.reload() }
   }
 
   const assignRider = async (orderId: string, riderId: string) => {
-    const selectedRider = riders.find(r => r.id === riderId)
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_rider_id: riderId, rider_name: selectedRider?.name, rider_phone: selectedRider?.phone } : o))
+    let finalRiderId = riderId
+    let selectedRider = riders.find(r => r.id === finalRiderId)
+
+    if (riderId === 'AUTO') {
+      const activeRidersList = riders.filter(r => r.is_active)
+      
+      if (activeRidersList.length === 0) {
+        toast.error('No active riders available to auto-assign')
+        return
+      }
+
+      // Calculate active orders per rider
+      const activeOrdersCount: Record<string, number> = {}
+      activeRidersList.forEach(r => { activeOrdersCount[r.id] = 0 })
+
+      orders.forEach(o => {
+        if (o.status !== 'completed' && o.status !== 'cancelled' && o.delivery_rider_id) {
+          if (activeOrdersCount[o.delivery_rider_id] !== undefined) {
+            activeOrdersCount[o.delivery_rider_id]++
+          }
+        }
+      })
+
+      // Find active rider with min orders
+      let minRider: string | null = null
+      let minOrders = Infinity
+
+      activeRidersList.forEach(r => {
+        if (activeOrdersCount[r.id] < minOrders) {
+          minOrders = activeOrdersCount[r.id]
+          minRider = r.id
+        }
+      })
+
+      if (minRider) {
+        finalRiderId = minRider
+        selectedRider = riders.find(r => r.id === finalRiderId)
+      } else {
+        toast.error('Could not auto-assign rider')
+        return
+      }
+    }
+
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_rider_id: finalRiderId, rider_name: selectedRider?.name, rider_phone: selectedRider?.phone } : o))
     
-    const { error } = await supabase.from('orders').update({ delivery_rider_id: riderId }).eq('id', orderId)
+    const { error } = await supabase.from('orders').update({ delivery_rider_id: finalRiderId }).eq('id', orderId)
     if (error) { toast.error('Failed to assign rider'); window.location.reload() }
-    else toast.success('Rider assigned!')
+    else toast.success(riderId === 'AUTO' ? `Auto-assigned to ${selectedRider?.name}!` : 'Rider assigned!')
   }
 
   const handleEnableAudio = () => {
@@ -528,23 +578,7 @@ function OrderCard({
             </div>
           )}
 
-          {/* Rider Assignment Dropdown */}
-          {canAssignRider && riders && riders.length > 0 && onAssignRider && (
-            <div className="mt-1">
-              <select 
-                className="w-full text-xs rounded-md border border-gray-300 py-1.5 pl-2 pr-8 text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none bg-white"
-                onChange={(e) => {
-                  if (e.target.value) onAssignRider(e.target.value)
-                }}
-                value=""
-              >
-                <option value="" disabled>Assign Delivery Rider...</option>
-                {riders.map(r => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.phone})</option>
-                ))}
-              </select>
-            </div>
-          )}
+
 
           {/* Actions row */}
           <div className="flex items-center gap-2 mt-1">

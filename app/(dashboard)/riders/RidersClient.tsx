@@ -24,7 +24,7 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
   const [isAdding, setIsAdding] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [formData, setFormData] = useState({ name: '', phone: '', vehicle_info: '', password: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', vehicle_info: '', password: '', email: '' })
 
   const handleAddRider = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +39,8 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
           name: formData.name,
           phone: formData.phone,
           vehicle_info: formData.vehicle_info,
-          password: formData.password
+          password: formData.password,
+          email: formData.email
         })
       })
 
@@ -51,7 +52,7 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
 
       setRiders([json.rider as Rider, ...riders])
       setIsAdding(false)
-      setFormData({ name: '', phone: '', vehicle_info: '', password: '' })
+      setFormData({ name: '', phone: '', vehicle_info: '', password: '', email: '' })
       toast.success('Rider added!')
     } catch (err: any) {
       toast.error(err.message || 'Failed to add rider')
@@ -142,6 +143,16 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
                   className="w-full rounded-lg border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                   value={formData.password}
                   onChange={e => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Rider Email (Optional)</label>
+                <input
+                  type="email"
+                  placeholder="Where to send the login credentials"
+                  className="w-full rounded-lg border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5 md:col-span-2">

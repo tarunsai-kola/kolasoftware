@@ -43,7 +43,7 @@ export default async function StorefrontPage() {
   // Use the anon Supabase client — RLS allows public SELECT on is_available items
   const supabase = await createClient()
 
-  const { data: menuItems, error } = await supabase
+  const { data: menuItems, error: menuError } = await supabase
     .from('menu_items')
     .select('id, name, description, price, category, image_url, sort_order, food_type, cuisine_tags, variant_groups, addon_groups')
     .eq('restaurant_id', restaurantId)
@@ -51,10 +51,18 @@ export default async function StorefrontPage() {
     .order('category', { ascending: true })
     .order('sort_order', { ascending: true })
 
-  if (error) {
+  const { data: restaurantData, error: restaurantError } = await supabase
+    .from('restaurants_public')
+    .select('category_order')
+    .eq('id', restaurantId)
+    .single()
+
+  if (menuError) {
     // Log server-side; don't surface DB errors to the customer
-    console.error('[StorefrontPage] menu fetch error:', getErrorMessage(error))
+    console.error('[StorefrontPage] menu fetch error:', getErrorMessage(menuError))
   }
 
-  return <StorefrontClient menuItems={menuItems ?? []} />
+  const categoryOrder = restaurantData?.category_order || []
+
+  return <StorefrontClient menuItems={menuItems ?? []} categoryOrder={categoryOrder} />
 }

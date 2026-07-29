@@ -16,7 +16,7 @@ export default async function SettingsPage() {
 
   const { data: restaurant, error } = await supabase
     .from('restaurants')
-    .select('id, name, domain, subdomain, logo_url, primary_color, font_family, banner_image_url, kitchen_email, status, subscription_status, address, lat, lng, delivery_radius_km, is_cod_enabled, is_online_payment_enabled, razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret')
+    .select('id, name, domain, subdomain, logo_url, primary_color, font_family, banner_image_url, kitchen_email, status, subscription_status, address, lat, lng, delivery_radius_km, is_cod_enabled, is_online_payment_enabled, razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret, whatsapp_number, is_accepting_orders, announcement_message, opening_time, closing_time')
     .eq('id', restaurantId)
     .single()
 

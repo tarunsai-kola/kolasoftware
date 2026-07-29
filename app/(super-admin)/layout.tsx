@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { Toaster } from 'react-hot-toast'
 
 export default async function SuperAdminLayout({
   children,
@@ -103,6 +104,7 @@ export default async function SuperAdminLayout({
       <main className="flex-1 overflow-auto bg-gray-50 p-8">
         {children}
       </main>
+      <Toaster position="top-center" />
     </div>
   )
 }

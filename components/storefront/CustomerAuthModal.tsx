@@ -5,12 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { useCustomer } from './CustomerContext'
 import toast from 'react-hot-toast'
 import { saveCustomerProfile } from '@/app/actions/customer'
+import { sendPasswordResetOtp } from '@/app/actions/auth'
 
 // =============================================================================
 // Types
 // =============================================================================
 
-type Step = 'email' | 'password-login' | 'password-signup' | 'profile' | 'done' | 'check-email'
+type Step = 'email' | 'password-login' | 'password-signup' | 'profile' | 'done' | 'check-email' | 'forgot-password' | 'verify-otp' | 'new-password'
 
 interface CustomerAuthModalProps {
   isOpen: boolean
@@ -32,6 +33,8 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [isPending, startTransition] = useTransition()
   
   // Reset state when modal opens
@@ -39,6 +42,8 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
     if (isOpen) {
       setStep('email')
       setPassword('')
+      setOtp('')
+      setNewPassword('')
     }
   }, [isOpen])
 
@@ -183,6 +188,79 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
     })
   }
 
+  // ── Step 4: Forgot Password ───────────────────────────────────────────────
+  const handleSendResetOtp = () => {
+    startTransition(async () => {
+      const result = await sendPasswordResetOtp(email.trim().toLowerCase())
+      if (result.error) {
+        if (result.error.includes('No account found')) {
+          toast.error("You haven't set up a password yet. Let's create one!")
+          setStep('password-signup')
+        } else {
+          toast.error(result.error)
+        }
+        return
+      }
+      toast.success('Reset code sent to your email')
+      setStep('verify-otp')
+    })
+  }
+
+  const handleVerifyOtp = () => {
+    if (!otp || otp.length < 6) {
+      toast.error('Please enter a valid 6-digit code')
+      return
+    }
+    startTransition(async () => {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: otp,
+        type: 'recovery',
+      })
+      if (error) {
+        toast.error('Invalid or expired code')
+        return
+      }
+      setStep('new-password')
+    })
+  }
+
+  const handleUpdatePassword = () => {
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+    startTransition(async () => {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      
+      toast.success('Password updated successfully')
+      
+      // Check if profile is complete
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('customers')
+          .select('name, phone')
+          .eq('user_id', user.id)
+          .maybeSingle()
+  
+        if (!profile || !profile.name || !profile.phone) {
+          setStep('profile')
+          return
+        }
+      }
+      
+      await refreshCustomer()
+      onSuccess()
+    })
+  }
+
   const btnStyle: CSSProperties = {
     backgroundColor: primaryColor,
   }
@@ -283,6 +361,15 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
                   style={btnStyle}
                 >
                   {isPending ? 'Signing in...' : 'Sign In'}
+                </button>
+              </div>
+
+              <div className="mt-5 text-center">
+                <button
+                  onClick={() => setStep('forgot-password')}
+                  className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  Forgot your password?
                 </button>
               </div>
             </div>
@@ -397,6 +484,111 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
                   style={btnStyle}
                 >
                   {isPending ? 'Saving Profile...' : 'Complete Profile'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── FORGOT PASSWORD STEP ──────────────────────────────────────── */}
+          {step === 'forgot-password' && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              <button onClick={() => setStep('password-login')} className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-400 hover:text-gray-800 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+                Back to login
+              </button>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">Reset Password</h2>
+                <p className="mt-2 text-sm font-medium text-gray-500">
+                  We'll send a 6-digit verification code to <br/><span className="text-gray-900">{email}</span>
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <button
+                  onClick={handleSendResetOtp}
+                  disabled={isPending}
+                  className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-black/10 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
+                  style={btnStyle}
+                >
+                  {isPending ? 'Sending...' : 'Send Verification Code'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── VERIFY OTP STEP ─────────────────────────────────────────────── */}
+          {step === 'verify-otp' && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              <button onClick={() => setStep('forgot-password')} className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-400 hover:text-gray-800 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+                Back
+              </button>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">Enter Code</h2>
+                <p className="mt-2 text-sm font-medium text-gray-500">
+                  Enter the 6-digit code sent to <br/><span className="text-gray-900">{email}</span>
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <div className="group relative">
+                  <label className="absolute -top-2.5 left-3 inline-block bg-white px-1.5 text-xs font-semibold text-gray-500 transition-colors group-focus-within:text-gray-900">6-Digit Code</label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                    placeholder="123456"
+                    autoFocus
+                    className="w-full rounded-2xl border-2 border-gray-200 bg-transparent px-4 py-4 text-center tracking-[0.5em] text-2xl font-bold text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:outline-none focus:ring-0 transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={isPending || otp.length < 6}
+                  className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-black/10 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
+                  style={btnStyle}
+                >
+                  {isPending ? 'Verifying...' : 'Verify Code'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── NEW PASSWORD STEP ───────────────────────────────────────────── */}
+          {step === 'new-password' && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="mb-8">
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">New Password</h2>
+                <p className="mt-2 text-sm font-medium text-gray-500">
+                  Create a new strong password for your account.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <div className="group relative">
+                  <label className="absolute -top-2.5 left-3 inline-block bg-white px-1.5 text-xs font-semibold text-gray-500 transition-colors group-focus-within:text-gray-900">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUpdatePassword()}
+                    placeholder="Minimum 6 characters"
+                    autoFocus
+                    className="w-full rounded-2xl border-2 border-gray-200 bg-transparent px-4 py-4 text-sm font-medium text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-0 transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={handleUpdatePassword}
+                  disabled={isPending || newPassword.length < 6}
+                  className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-black/10 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
+                  style={btnStyle}
+                >
+                  {isPending ? 'Updating...' : 'Save & Log In'}
                 </button>
               </div>
             </div>

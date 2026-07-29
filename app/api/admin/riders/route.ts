@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, phone, vehicle_info, password, restaurant_id } = body
+    const { name, phone, vehicle_info, password, restaurant_id, email } = body
 
     if (!name || !phone || !password || !restaurant_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -66,6 +69,29 @@ export async function POST(request: Request) {
       // Cleanup auth user if db insert fails
       await supabaseAdmin.auth.admin.deleteUser(userId)
       return NextResponse.json({ error: `Failed to save rider profile: ${dbError.message || dbError.details || JSON.stringify(dbError)}` }, { status: 500 })
+    }
+
+    // 3. Send Credentials via Resend if email is provided
+    if (email && process.env.RESEND_API_KEY) {
+      try {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: email,
+          subject: 'Your Delivery Rider Credentials',
+          html: `
+            <h2>Welcome, ${name}!</h2>
+            <p>You have been added as a delivery rider. Here are your login credentials:</p>
+            <ul>
+              <li><strong>Phone Number (Login ID):</strong> ${phone}</li>
+              <li><strong>Password:</strong> ${password}</li>
+            </ul>
+            <p>Please download the rider app and log in with these credentials.</p>
+          `
+        })
+      } catch (emailErr) {
+        console.error('Failed to send credentials email:', emailErr)
+        // We do not fail the request if the email fails, since the rider was successfully created
+      }
     }
 
     return NextResponse.json({ rider: riderData })

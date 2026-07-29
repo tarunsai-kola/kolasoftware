@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { createClient } from '@/lib/supabase/server'
 import DashboardNavigation from '@/components/dashboard/DashboardNavigation'
+import { Toaster } from 'react-hot-toast'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -85,6 +86,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   } else if (role === 'owner') {
     navItems = [
       { label: 'Orders', href: '/orders' },
+      { label: 'Analysis', href: '/analysis' },
       { label: 'Delivery Map', href: '/delivery' },
       { label: 'Menu', href: '/menu' },
       { label: 'Coupons', href: '/coupons' },
@@ -96,6 +98,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     // regular staff
     navItems = [
       { label: 'Orders', href: '/orders' },
+      { label: 'Analysis', href: '/analysis' },
       { label: 'Menu', href: '/menu' },
       { label: 'Coupons', href: '/coupons' },
       { label: 'History', href: '/history' },
@@ -118,6 +121,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       <main className="flex flex-col flex-1 overflow-hidden">
         {children}
       </main>
+      <Toaster position="top-center" />
     </div>
   )
 }

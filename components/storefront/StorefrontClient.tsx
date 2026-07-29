@@ -45,9 +45,10 @@ function groupByCategory(items: MenuItem[]): Record<string, MenuItem[]> {
 
 interface StorefrontClientProps {
   menuItems: MenuItem[]
+  categoryOrder: string[]
 }
 
-export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
+export default function StorefrontClient({ menuItems, categoryOrder }: StorefrontClientProps) {
   const { theme } = useRestaurantContext()
   const router = useRouter()
 
@@ -116,7 +117,17 @@ export default function StorefrontClient({ menuItems }: StorefrontClientProps) {
   const closeCart = useCallback(() => setIsCartOpen(false), [])
 
   const groupedItems = useMemo(() => groupByCategory(menuItems), [menuItems])
-  const categories = useMemo(() => Object.keys(groupedItems), [groupedItems])
+  const categories = useMemo(() => {
+    const rawCategories = Object.keys(groupedItems)
+    return rawCategories.sort((a, b) => {
+      const idxA = categoryOrder.indexOf(a)
+      const idxB = categoryOrder.indexOf(b)
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB
+      if (idxA !== -1) return -1
+      if (idxB !== -1) return 1
+      return a.localeCompare(b)
+    })
+  }, [groupedItems, categoryOrder])
 
   const [activeCategory, setActiveCategory] = useState<string>(() => categories[0] ?? '')
   const categoryNavRef = useRef<HTMLDivElement>(null)

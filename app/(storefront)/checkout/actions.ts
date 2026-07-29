@@ -4,6 +4,7 @@ import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { createServiceRoleClient, createClient } from '@/lib/supabase/server'
 import { sendOrderConfirmationWhatsApp } from '@/lib/whatsapp'
 import type { CartEntry } from '@/components/storefront/CartContext'
+import { Resend } from 'resend'
 
 // =============================================================================
 // Types
@@ -341,6 +342,51 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
         restaurantName: theme.name
       }).catch(err => {
         console.error('[createOrder] Background WhatsApp notification failed:', err)
+      })
+    }
+
+    // ── Step 6: Send Email confirmation ────────────────────────────────────────
+    if (email) {
+      const resend = new Resend(process.env.RESEND_API_KEY!)
+      const itemsHtml = cartItems.map(item => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} <span style="color: #666;">x${item.quantity}</span></td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${item.price * item.quantity}</td>
+        </tr>
+      `).join('')
+
+      // Run asynchronously
+      resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'onboarding@kolasolution.com',
+        to: email,
+        subject: `Order Confirmation - ${theme.name}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
+            <h1 style="color: #4F46E5; margin-top: 0;">Order Successful! 🎉</h1>
+            <p style="font-size: 16px;">Thank you for your order from <strong>${theme.name}</strong>.</p>
+            <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 16px; color: #1F2937;">🚀 We are preparing your food and <strong>we will deliver within 30 min!</strong></p>
+            </div>
+            
+            <h3 style="margin-top: 30px; border-bottom: 2px solid #eee; padding-bottom: 10px;">Order Summary (ID: #${order.id.slice(0, 8).toUpperCase()})</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              ${itemsHtml}
+              ${discountAmount > 0 ? `
+              <tr>
+                <td style="padding: 10px; color: #059669;">Discount Applied</td>
+                <td style="padding: 10px; text-align: right; color: #059669;">-₹${discountAmount}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 15px 10px; font-weight: bold; font-size: 18px;">Total</td>
+                <td style="padding: 15px 10px; text-align: right; font-weight: bold; font-size: 18px;">₹${totalAmount - discountAmount}</td>
+              </tr>
+            </table>
+            <p style="margin-top: 40px; font-size: 14px; color: #666; text-align: center;">If you have any questions about your order, please contact us.</p>
+          </div>
+        `
+      }).catch(err => {
+        console.error('[createOrder] Background Email notification failed:', err)
       })
     }
 
