@@ -10,6 +10,7 @@ interface Rider {
   phone: string
   vehicle_info: string
   is_active: boolean
+  user_id?: string
 }
 
 interface RidersClientProps {
@@ -89,6 +90,37 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
       window.location.reload()
     } else {
       toast.success('Rider removed')
+    }
+  }
+
+  const handleResetPassword = async (riderId: string, name: string, userId?: string) => {
+    if (!userId) {
+      toast.error('Cannot reset password for this rider (No Auth ID)')
+      return
+    }
+
+    const newPassword = window.prompt(`Enter a new password for ${name} (minimum 6 characters):`)
+    if (!newPassword) return
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/admin/riders/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newPassword })
+      })
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to reset password')
+      
+      toast.success(`Password for ${name} has been reset!`)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset password')
+      console.error(err)
     }
   }
 
@@ -218,7 +250,13 @@ export default function RidersClient({ initialRiders, restaurantId, theme }: Rid
                         {rider.is_active ? 'Active' : 'Offline'}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                      <button 
+                        onClick={() => handleResetPassword(rider.id, rider.name, rider.user_id)}
+                        className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                      >
+                        Reset Password
+                      </button>
                       <button 
                         onClick={() => handleDelete(rider.id)}
                         className="text-red-600 hover:text-red-900 transition-colors"

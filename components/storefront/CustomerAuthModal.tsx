@@ -206,9 +206,10 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
     })
   }
 
-  const handleVerifyOtp = () => {
-    if (!otp || otp.length < 6) {
-      toast.error('Please enter a valid 6-digit code')
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (otp.length < 6) {
+      toast.error('Please enter a valid verification code')
       return
     }
     startTransition(async () => {
@@ -500,7 +501,7 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
               <div className="mb-8">
                 <h2 className="text-2xl font-black tracking-tight text-gray-900">Reset Password</h2>
                 <p className="mt-2 text-sm font-medium text-gray-500">
-                  We'll send a 6-digit verification code to <br/><span className="text-gray-900">{email}</span>
+                  We'll send a 6 or 8-digit verification code to <br/><span className="text-gray-900">{email}</span>
                 </p>
               </div>
 
@@ -528,18 +529,18 @@ export default function CustomerAuthModal({ isOpen, onClose, onSuccess, primaryC
               <div className="mb-8">
                 <h2 className="text-2xl font-black tracking-tight text-gray-900">Enter Code</h2>
                 <p className="mt-2 text-sm font-medium text-gray-500">
-                  Enter the 6-digit code sent to <br/><span className="text-gray-900">{email}</span>
+                  Enter the 6 or 8-digit code sent to <br/><span className="text-gray-900">{email}</span>
                 </p>
               </div>
 
               <div className="space-y-5">
                 <div className="group relative">
-                  <label className="absolute -top-2.5 left-3 inline-block bg-white px-1.5 text-xs font-semibold text-gray-500 transition-colors group-focus-within:text-gray-900">6-Digit Code</label>
+                  <label className="absolute -top-2.5 left-3 inline-block bg-white px-1.5 text-xs font-semibold text-gray-500 transition-colors group-focus-within:text-gray-900">Verification Code</label>
                   <input
                     type="text"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp(e as any)}
                     placeholder="123456"
                     autoFocus
                     className="w-full rounded-2xl border-2 border-gray-200 bg-transparent px-4 py-4 text-center tracking-[0.5em] text-2xl font-bold text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:outline-none focus:ring-0 transition-all"

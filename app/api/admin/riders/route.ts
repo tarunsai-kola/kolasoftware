@@ -39,7 +39,8 @@ export async function POST(request: Request) {
       email_confirm: true,
       user_metadata: {
         role: 'rider',
-        name: name
+        name: name,
+        real_email: email
       }
     })
 
