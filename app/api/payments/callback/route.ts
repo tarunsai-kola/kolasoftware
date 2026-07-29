@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { sendOrderConfirmationWhatsApp } from '@/lib/whatsapp'
 
 // =============================================================================
 // Route handler: POST /api/payments/callback
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('id, restaurant:restaurants(razorpay_key_secret)')
+      .select('id, total_amount, customer:customers(name, phone), restaurant:restaurants(name, razorpay_key_secret)')
       .eq('razorpay_order_id', razorpay_order_id)
       .single()
 
@@ -102,6 +103,19 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       console.error('[callback] Failed to update order status:', updateError.message)
       // Even if update fails, payment was verified. Webhook will likely catch it.
+    } else {
+      // ── 4.5 Send WhatsApp confirmation ─────────────────────────────────────
+      const customer = Array.isArray(orderData.customer) ? orderData.customer[0] : orderData.customer
+      if (customer?.phone) {
+        sendOrderConfirmationWhatsApp(customer.phone, {
+          orderId: orderData.id,
+          customerName: customer.name || 'Customer',
+          totalAmount: Number(orderData.total_amount) || 0,
+          restaurantName: restaurant?.name || 'Restaurant'
+        }).catch(err => {
+          console.error('[callback] Background WhatsApp notification failed:', err)
+        })
+      }
     }
 
     // ── 5. Redirect to the order confirmation page ───────────────────────────

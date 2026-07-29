@@ -2,6 +2,7 @@
 
 import { getRestaurantContext } from '@/lib/get-restaurant-context'
 import { createServiceRoleClient, createClient } from '@/lib/supabase/server'
+import { sendOrderConfirmationWhatsApp } from '@/lib/whatsapp'
 import type { CartEntry } from '@/components/storefront/CartContext'
 
 // =============================================================================
@@ -120,7 +121,7 @@ export async function createOrder(
 
   try {
     // Read tenant context from middleware-injected headers (not from client)
-    const { restaurantId } = await getRestaurantContext()
+    const { restaurantId, theme } = await getRestaurantContext()
 
 // Helper to calculate distance
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -328,6 +329,19 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
         '[createOrder] order_items insert failed (non-fatal):',
         itemsError,
       )
+    }
+
+    // ── Step 5: Send WhatsApp confirmation (for COD) ───────────────────────
+    if (input.paymentMethod === 'cod') {
+      // Run asynchronously to not block the request
+      sendOrderConfirmationWhatsApp(phone, {
+        orderId: order.id,
+        customerName: input.name.trim(),
+        totalAmount: totalAmount - discountAmount,
+        restaurantName: theme.name
+      }).catch(err => {
+        console.error('[createOrder] Background WhatsApp notification failed:', err)
+      })
     }
 
     return { success: true, orderId: order.id }

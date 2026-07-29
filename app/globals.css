@@ -174,7 +174,7 @@ body {
 }
 
 /* =============================================================================
-   Animations
+   Animations (Editorial Engineering)
    ============================================================================= */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translate3d(0, 20px, 0); }
@@ -187,10 +187,41 @@ body {
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes data-pulse {
+  0% { left: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
 .animate-pulse-glow {
   animation: pulse-glow 2s infinite;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+.animate-data-pulse {
+  animation: data-pulse 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -9,8 +9,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Kola Software",
-  description: "Restaurant Ordering Platform",
+  title: "Custom Software Development Company in Bangalore | Kola Solutions",
+  description: "Kola Solutions is a premium software company in Bangalore specializing in custom CRM development, WhatsApp automation, and custom ecommerce website development.",
 };
 
 export default function RootLayout({
